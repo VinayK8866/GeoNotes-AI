@@ -1,24 +1,27 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { createClient, Session } from '@supabase/supabase-js';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { Session } from '@supabase/supabase-js';
 import { Note, Category } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
+import { getDistance } from './utils/geolocation';
+import { REMINDER_RADIUS_METERS } from './constants';
+import * as db from './utils/db';
+import { supabase } from './supabaseClient';
 import { Header } from './components/Header';
 import { NoteCard } from './components/NoteCard';
 import { NoteForm } from './components/NoteForm';
 import { CategoryFilter } from './components/CategoryFilter';
 import { UndoToast } from './components/UndoToast';
+import { ErrorToast } from './components/ErrorToast';
+import { NotificationPermissionBanner } from './components/NotificationPermissionBanner';
 import { PlusIcon, LocationPinIcon } from './components/Icons';
 
-// In a real production app, these values should be stored in environment variables.
-const supabaseUrl = 'https://plgpxrwycqsbrhsvzzcn.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsZ3B4cnd5Y3FzYnJoc3Z6emNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTgxNzE3NTMsImV4cCI6MjAzMzc0Nzc1M30.bCd_3naPxgC3sw-4N3v2yv4dkElq3D6g3522j2j1GSA';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const MapView = lazy(() => import('./components/MapView'));
 
-const initialCategories: Category[] = [
-  { id: '1', name: 'Work', color: 'bg-blue-500' },
-  { id: '2', name: 'Personal', color: 'bg-green-500' },
-  { id: '3', name: 'Shopping', color: 'bg-yellow-500' },
-  { id: '4', name: 'Urgent', color: 'bg-red-500' },
+const MOCK_CATEGORIES: Category[] = [
+    { id: 'cat-1', name: 'Work', color: 'bg-blue-500' },
+    { id: 'cat-2', name: 'Personal', color: 'bg-green-500' },
+    { id: 'cat-3', name: 'Shopping', color: 'bg-yellow-500' },
+    { id: 'cat-4', name: 'Ideas', color: 'bg-purple-500' },
 ];
 
 const Login: React.FC<{ onLogin: () => Promise<void> }> = ({ onLogin }) => (
@@ -42,200 +45,334 @@ const Login: React.FC<{ onLogin: () => Promise<void> }> = ({ onLogin }) => (
 );
 
 const App: React.FC = () => {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [categories] = useState<Category[]>(initialCategories);
-  const [isFormVisible, setIsFormVisible] = useState(false);
-  const [editingNote, setEditingNote] = useState<Note | null>(null);
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+    const [session, setSession] = useState<Session | null>(null);
+    const [loading, setLoading] = useState(true);
 
-  const [lastDeletedNote, setLastDeletedNote] = useState<Note | null>(null);
-  const [undoTimeoutId, setUndoTimeoutId] = useState<NodeJS.Timeout | null>(null);
-  
-  const { location, error: geolocationError, requestLocation } = useGeolocation();
-  
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-  
-  useEffect(() => {
-    if (session) {
-      fetchNotes();
-    }
-  }, [session]);
-
-  const fetchNotes = async () => {
-    if (!session) return;
-    try {
-      const { data, error } = await supabase
-        .from('notes')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setNotes(data || []);
-    } catch (error) {
-      console.error("Error fetching notes:", error);
-    }
-  };
-
-  // FIX: The property is named `created_at` not `createdAt`.
-  const handleSaveNote = async (noteData: Omit<Note, 'id' | 'created_at' | 'isArchived' | 'user_id'>, id?: string) => {
-    if (!session) return;
-
-    try {
-      if (id) {
-        const { data, error } = await supabase.from('notes').update(noteData).eq('id', id).select().single();
-        if (error) throw error;
-        setNotes(notes.map(n => n.id === id ? data : n));
-      } else {
-        const newNote = { ...noteData, user_id: session.user.id };
-        const { data, error } = await supabase.from('notes').insert(newNote).select().single();
-        if (error) throw error;
-        setNotes([data, ...notes]);
-      }
-    } catch (error) {
-      console.error("Error saving note:", error);
-    }
-
-    setIsFormVisible(false);
-    setEditingNote(null);
-  };
-
-  const handleDeleteNote = async (id: string) => {
-    const noteToDelete = notes.find(n => n.id === id);
-    if (!noteToDelete) return;
-
-    if(undoTimeoutId) clearTimeout(undoTimeoutId);
+    const [notes, setNotes] = useState<Note[]>([]);
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [noteToEdit, setNoteToEdit] = useState<Note | null>(null);
+    const [activeFilter, setActiveFilter] = useState<string | null>(null);
     
-    setLastDeletedNote(noteToDelete);
-    setNotes(notes.filter(n => n.id !== id)); // Optimistic UI update
+    const [lastDeletedNote, setLastDeletedNote] = useState<Note | null>(null);
+    const [showUndoToast, setShowUndoToast] = useState(false);
 
-    const { error } = await supabase.from('notes').delete().eq('id', id);
-    if (error) {
-      console.error("Failed to delete note from DB:", error);
-      setNotes(notes); // Revert UI change
-    }
+    const [error, setError] = useState<string | null>(null);
+
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [isSyncing, setIsSyncing] = useState(false);
     
-    const timeoutId = setTimeout(() => setLastDeletedNote(null), 5000);
-    setUndoTimeoutId(timeoutId);
-  };
+    const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+    const [notifiedNoteIds, setNotifiedNoteIds] = useState(new Set<string>());
 
-  const handleUndoDelete = async () => {
-    if (lastDeletedNote) {
-      // Re-insert the note into the database
-      const { error } = await supabase.from('notes').insert(lastDeletedNote);
-      if (!error) {
-        // FIX: The property is named `created_at` not `createdAt`.
-        setNotes(prevNotes => [...prevNotes, lastDeletedNote].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
-        setLastDeletedNote(null);
-        if(undoTimeoutId) clearTimeout(undoTimeoutId);
-        setUndoTimeoutId(null);
-      } else {
-        console.error("Failed to undo delete:", error);
-        // If undo fails, refetch to sync with DB state
-        fetchNotes();
-      }
-    }
-  };
+    const { location, error: locationError } = useGeolocation();
 
-  const handleEditNote = (note: Note) => {
-    setEditingNote(note);
-    setIsFormVisible(true);
-  };
+    useEffect(() => {
+        if (typeof Notification !== 'undefined') {
+            setNotificationPermission(Notification.permission);
+        }
 
-  const handleAddNewNote = () => {
-    setEditingNote(null);
-    setIsFormVisible(true);
-  };
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+            setLoading(false);
+        });
 
-  const handleCancelForm = () => {
-    setIsFormVisible(false);
-    setEditingNote(null);
-  };
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+        });
 
-  const filteredNotes = useMemo(() => {
-    if (!activeFilter) return notes;
-    return notes.filter(note => note.category?.id === activeFilter);
-  }, [notes, activeFilter]);
+        return () => subscription.unsubscribe();
+    }, []);
 
-  async function signInWithGoogle() {
-    await supabase.auth.signInWithOAuth({ provider: 'google' });
-  }
+    // Syncing logic
+    const syncData = useCallback(async () => {
+        if (!isOnline || isSyncing || !session) return;
 
-  async function signOut() {
-    await supabase.auth.signOut();
-  }
-  
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-  }
-  
-  if (!session) {
-    return <Login onLogin={signInWithGoogle} />;
-  }
+        const queuedUpdates = await db.getQueuedUpdates();
+        if (queuedUpdates.length === 0) return;
 
-  return (
-    <div className="bg-gray-900 text-white min-h-screen font-sans">
-      <Header session={session} onSignOut={signOut} />
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {geolocationError && (
-          <div className="bg-red-900/50 border border-red-500 text-red-300 px-4 py-3 rounded-md mb-6" role="alert">
-            <p><strong className="font-bold">Geolocation Error:</strong> {geolocationError}</p>
-            <button onClick={requestLocation} className="mt-2 text-sm underline">Try again</button>
-          </div>
-        )}
+        setIsSyncing(true);
+        setError(null);
         
-        <div className="flex justify-between items-center mb-6">
-            <h2 className="text-3xl font-bold tracking-tight">Your Notes</h2>
-            <button onClick={handleAddNewNote} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition-colors flex items-center">
-              <PlusIcon className="w-5 h-5 mr-2" />
-              Add Note
-            </button>
+        try {
+            for (const update of queuedUpdates) {
+                if (update.type === 'SAVE') {
+                    const noteToSave = { ...update.payload, user_id: session.user.id };
+                    const { error } = await supabase.from('notes').upsert(noteToSave);
+                    if (error) throw error;
+                } else if (update.type === 'DELETE') {
+                    const { error } = await supabase.from('notes').delete().eq('id', update.payload.id);
+                    if (error && error.code !== 'PGRST204') throw error;
+                }
+                await db.deleteNoteFromQueue(update.id);
+            }
+        } catch (err: any) {
+            console.error("Sync failed:", err);
+            setError('Failed to sync changes. They will be retried.');
+        } finally {
+            setIsSyncing(false);
+        }
+    }, [isOnline, isSyncing, session]);
+
+    // Initial Data Load & Sync
+    useEffect(() => {
+        const loadAndSyncNotes = async () => {
+            if (!session) return;
+            
+            setLoading(true);
+            const localNotes = await db.getNotesFromDB();
+            setNotes(localNotes);
+
+            if (isOnline) {
+                const { data: serverNotes, error: fetchError } = await supabase
+                    .from('notes')
+                    .select('*')
+                    .eq('user_id', session.user.id);
+
+                if (fetchError) {
+                    setError('Could not fetch notes from server.');
+                } else if (serverNotes) {
+                    await db.saveAllNotesToDB(serverNotes);
+                    setNotes(serverNotes.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+                }
+                await syncData();
+            }
+            setLoading(false);
+        };
+        loadAndSyncNotes();
+    }, [session, isOnline, syncData]);
+    
+    // Real-Time Subscription
+    useEffect(() => {
+        if (!session) return;
+
+        const channel = supabase
+            .channel('realtime-notes')
+            .on<Note>('postgres_changes', { event: '*', schema: 'public', table: 'notes', filter: `user_id=eq.${session.user.id}` },
+                (payload) => {
+                    console.log('Realtime change received!', payload);
+                    if (payload.eventType === 'INSERT') {
+                        const newNote = payload.new as Note;
+                        setNotes(prev => [newNote, ...prev].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+                        db.saveNoteToDB(newNote);
+                    }
+                    if (payload.eventType === 'UPDATE') {
+                        const updatedNote = payload.new as Note;
+                        setNotes(prev => prev.map(n => n.id === updatedNote.id ? updatedNote : n));
+                        db.saveNoteToDB(updatedNote);
+                    }
+                    if (payload.eventType === 'DELETE') {
+                        const { id } = payload.old as { id: string };
+                        setNotes(prev => prev.filter(n => n.id !== id));
+                        db.deleteNoteFromDB(id);
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [session]);
+
+
+    // Online/Offline status
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
+    // Geo-fenced Notifications
+    useEffect(() => {
+        if (location && notificationPermission === 'granted' && navigator.serviceWorker.ready) {
+            const nowNotified = new Set(notifiedNoteIds);
+            let changed = false;
+
+            notes.forEach(note => {
+                if (note.location) {
+                    const distance = getDistance(location, note.location.coordinates);
+                    const isCurrentlyNearby = distance <= REMINDER_RADIUS_METERS;
+                    const wasAlreadyNotified = notifiedNoteIds.has(note.id);
+
+                    if (isCurrentlyNearby && !wasAlreadyNotified) {
+                        navigator.serviceWorker.ready.then(registration => {
+                            registration.showNotification(note.title, {
+                                body: `You are near "${note.location?.name}".\n${note.content.substring(0, 100)}`,
+                                icon: '/vite.svg',
+                                tag: note.id
+                            });
+                        });
+                        nowNotified.add(note.id);
+                        changed = true;
+                    } else if (!isCurrentlyNearby && wasAlreadyNotified) {
+                        nowNotified.delete(note.id);
+                        changed = true;
+                    }
+                }
+            });
+            if (changed) {
+                setNotifiedNoteIds(nowNotified);
+            }
+        }
+    }, [location, notes, notificationPermission, notifiedNoteIds]);
+
+    const handleSaveNote = async (note: Note) => {
+        const isEditing = !!noteToEdit;
+        const newNotes = isEditing
+            ? notes.map(n => (n.id === note.id ? note : n))
+            : [note, ...notes];
+        
+        setNotes(newNotes.sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+        await db.saveNoteToDB(note);
+        await db.queueUpdate({ type: 'SAVE', payload: note });
+        syncData();
+        
+        setIsFormOpen(false);
+        setNoteToEdit(null);
+    };
+
+    const handleDeleteNote = async (id: string) => {
+        const noteToDelete = notes.find(n => n.id === id);
+        if (!noteToDelete) return;
+        
+        setLastDeletedNote(noteToDelete);
+        setShowUndoToast(true);
+
+        const newNotes = notes.filter(n => n.id !== id);
+        setNotes(newNotes);
+
+        const timer = setTimeout(async () => {
+            await db.deleteNoteFromDB(id);
+            await db.queueUpdate({ type: 'DELETE', payload: { id } });
+            syncData();
+            setShowUndoToast(false);
+            setLastDeletedNote(null);
+        }, 5000);
+        
+        (noteToDelete as any)._deleteTimer = timer;
+    };
+    
+    const handleUndoDelete = async () => {
+        if (!lastDeletedNote) return;
+        
+        clearTimeout((lastDeletedNote as any)._deleteTimer);
+        setNotes(prevNotes => [lastDeletedNote, ...prevNotes].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+        
+        setShowUndoToast(false);
+        setLastDeletedNote(null);
+    };
+
+    const handleEditNote = (note: Note) => {
+        setNoteToEdit(note);
+        setIsFormOpen(true);
+    };
+
+    const handleRequestNotificationPermission = async () => {
+        if ('Notification' in window) {
+            const permission = await Notification.requestPermission();
+            setNotificationPermission(permission);
+        }
+    };
+
+    async function signInWithGoogle() {
+        await supabase.auth.signInWithOAuth({ provider: 'google' });
+    }
+
+    async function signOut() {
+        await supabase.auth.signOut();
+    }
+    
+    if (loading) {
+        return <div className="min-h-screen flex items-center justify-center text-white">Loading...</div>;
+    }
+
+    if (!session) {
+        return <Login onLogin={signInWithGoogle} />;
+    }
+
+    const filteredNotes = activeFilter
+        ? notes.filter(note => note.category?.id === activeFilter)
+        : notes;
+
+    return (
+        <div className="bg-gray-900 text-gray-100 min-h-screen font-sans">
+            <Header session={session} onSignOut={signOut} isOnline={isOnline} isSyncing={isSyncing} />
+            
+            {notificationPermission !== 'granted' && (
+                <NotificationPermissionBanner 
+                    status={notificationPermission} 
+                    onRequest={handleRequestNotificationPermission} 
+                />
+            )}
+
+            <main className="container mx-auto p-4 sm:p-6 lg:p-8">
+                {isFormOpen && (
+                    <NoteForm 
+                        noteToEdit={noteToEdit} 
+                        onSave={handleSaveNote} 
+                        onCancel={() => { setIsFormOpen(false); setNoteToEdit(null); }}
+                        categories={MOCK_CATEGORIES}
+                        userLocation={location}
+                    />
+                )}
+                
+                <Suspense fallback={<div className="bg-slate-700 rounded-lg h-[60vh] flex items-center justify-center text-white">Loading Map...</div>}>
+                    <MapView notes={filteredNotes} userLocation={location} />
+                </Suspense>
+
+                <div className="mt-8">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-3xl font-bold tracking-tight text-white">Your Notes</h2>
+                        <button 
+                            onClick={() => { setNoteToEdit(null); setIsFormOpen(true); }}
+                            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors"
+                        >
+                           <PlusIcon className="w-5 h-5" />
+                           Add Note
+                        </button>
+                    </div>
+
+                    <CategoryFilter
+                        categories={MOCK_CATEGORIES}
+                        activeFilter={activeFilter}
+                        onSelectFilter={setActiveFilter}
+                    />
+
+                    {filteredNotes.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {filteredNotes.map(note => (
+                                <NoteCard 
+                                    key={note.id}
+                                    note={note}
+                                    userLocation={location}
+                                    onDelete={handleDeleteNote}
+                                    onEdit={handleEditNote}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-16 px-6 bg-gray-800 rounded-lg">
+                            <h3 className="text-xl font-semibold text-white">No notes yet</h3>
+                            <p className="text-gray-400 mt-2">Click "Add Note" to create your first location-based reminder.</p>
+                        </div>
+                    )}
+                </div>
+            </main>
+            
+            {showUndoToast && lastDeletedNote && (
+                <UndoToast message={`Note "${lastDeletedNote.title}" deleted.`} onUndo={handleUndoDelete} />
+            )}
+            {error && <ErrorToast message={error} onDismiss={() => setError(null)} />}
+            {locationError && <ErrorToast message={locationError} onDismiss={() => {}} />}
         </div>
-
-        <CategoryFilter categories={categories} activeFilter={activeFilter} onSelectFilter={setActiveFilter} />
-
-        {filteredNotes.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredNotes.map(note => (
-              <NoteCard key={note.id} note={note} userLocation={location} onDelete={handleDeleteNote} onEdit={handleEditNote} />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-16 px-6 bg-gray-800 rounded-lg">
-            <h3 className="text-xl font-semibold text-gray-300">No notes yet</h3>
-            <p className="text-gray-400 mt-2">Click "Add Note" to create your first geo-tagged reminder.</p>
-          </div>
-        )}
-
-        {isFormVisible && (
-          <NoteForm 
-            onSave={handleSaveNote} 
-            onCancel={handleCancelForm}
-            existingNote={editingNote}
-            categories={categories}
-            userLocation={location}
-          />
-        )}
-      </main>
-
-      {lastDeletedNote && (
-        <UndoToast message="Note deleted." onUndo={handleUndoDelete} />
-      )}
-    </div>
-  );
+    );
 };
 
 export default App;

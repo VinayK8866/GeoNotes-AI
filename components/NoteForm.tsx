@@ -1,196 +1,273 @@
 import React, { useState, useEffect } from 'react';
 import { Note, Category, LocationSuggestion, Coordinates } from '../types';
-import { parseNoteFromText, searchLocations } from '../services/geminiService';
-import { SparklesIcon, XIcon } from './Icons';
+import { suggestLocations, categorizeNote } from '../services/geminiService';
+import { useDebounce } from '../hooks/useDebounce';
+import { CloseIcon, MapPinIcon, SpinnerIcon, AiIcon } from './Icons';
 
 interface NoteFormProps {
-  onSave: (note: Omit<Note, 'id' | 'created_at' | 'isArchived' | 'user_id'>, id?: string) => void;
+  noteToEdit: Note | null;
+  onSave: (note: Note) => void;
   onCancel: () => void;
-  existingNote?: Note | null;
   categories: Category[];
   userLocation: Coordinates | null;
 }
 
-export const NoteForm: React.FC<NoteFormProps> = ({ onSave, onCancel, existingNote, categories, userLocation }) => {
-  const [naturalInput, setNaturalInput] = useState('');
+const TITLE_MAX_LENGTH = 150;
+const CONTENT_MAX_LENGTH = 10000;
+
+export const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categories, userLocation }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [locationQuery, setLocationQuery] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState<LocationSuggestion | null>(null);
+  const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
+  const [locationSearch, setLocationSearch] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState<{ name: string; coordinates: Coordinates } | null>(null);
   const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(undefined);
-  
-  const [isParsing, setIsParsing] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [error, setError] = useState('');
+  const [isCategorizing, setIsCategorizing] = useState(false);
+  const [errors, setErrors] = useState<{ title?: string; content?: string }>({});
 
-  // Debounce logic for location search
-  useEffect(() => {
-    if (!locationQuery.trim() || selectedLocation) {
-      setLocationSuggestions([]);
-      return;
+  const debouncedSearchTerm = useDebounce(locationSearch, 500);
+
+  const validateForm = () => {
+    const newErrors: { title?: string; content?: string } = {};
+
+    if (!title.trim()) {
+        newErrors.title = 'Title is required.';
+    } else if (title.trim().length > TITLE_MAX_LENGTH) {
+        newErrors.title = `Title must be ${TITLE_MAX_LENGTH} characters or less.`;
     }
 
-    const search = async () => {
-        setIsSearching(true);
-        try {
-            const results = await searchLocations(locationQuery, userLocation);
-            // Only update suggestions if the query hasn't changed
-            setLocationSuggestions(results);
-        } catch(err) {
-            console.error("Location search failed", err);
-            setError("Failed to search for locations.");
-        } finally {
-            setIsSearching(false);
-        }
-    };
-
-    const debounceTimeout = setTimeout(() => {
-        search();
-    }, 500); // 500ms debounce delay
-
-    return () => clearTimeout(debounceTimeout);
-  }, [locationQuery, selectedLocation, userLocation]);
-
-
-  useEffect(() => {
-    if (existingNote) {
-      setTitle(existingNote.title);
-      setContent(existingNote.content);
-      if (existingNote.location) {
-        const suggestion: LocationSuggestion = {
-            name: existingNote.location.name,
-            address: '', // not stored
-            coordinates: existingNote.location.coordinates,
-            placeType: '' // not stored
-        };
-        setSelectedLocation(suggestion);
-        setLocationQuery(existingNote.location.name);
-      }
-      setSelectedCategoryId(existingNote.category?.id);
+    if (content.length > CONTENT_MAX_LENGTH) {
+        newErrors.content = `Content must be ${CONTENT_MAX_LENGTH} characters or less.`;
     }
-  }, [existingNote]);
 
-  const handleParseText = async () => {
-    if (!naturalInput.trim()) return;
-    setIsParsing(true);
-    setError('');
-    try {
-      const parsedData = await parseNoteFromText(naturalInput, userLocation);
-      setTitle(parsedData.title || '');
-      setContent(parsedData.content || '');
-      if (parsedData.locationQuery) {
-        setSelectedLocation(null); // Reset selected location to trigger a new search
-        setLocationQuery(parsedData.locationQuery);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred during parsing.');
-    } finally {
-      setIsParsing(false);
-    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
+  useEffect(() => {
+    if (noteToEdit) {
+      setTitle(noteToEdit.title);
+      setContent(noteToEdit.content);
+      setCategoryId(noteToEdit.category?.id);
+      setSelectedLocation(noteToEdit.location || null);
+      setLocationSearch(noteToEdit.location?.name || '');
+    }
+  }, [noteToEdit]);
+
+  useEffect(() => {
+    if (debouncedSearchTerm.trim().length > 2 && userLocation) {
+      const fetchSuggestions = async () => {
+        setIsSearching(true);
+        setLocationSuggestions([]);
+        try {
+          const suggestions = await suggestLocations(debouncedSearchTerm, userLocation);
+          setLocationSuggestions(suggestions);
+        } catch (error) {
+          console.error(error);
+          // TODO: Show an error to the user
+        } finally {
+          setIsSearching(false);
+        }
+      };
+      fetchSuggestions();
+    } else {
+      setLocationSuggestions([]);
+    }
+  }, [debouncedSearchTerm, userLocation]);
+
   const handleSelectSuggestion = (suggestion: LocationSuggestion) => {
-    setSelectedLocation(suggestion);
-    setLocationQuery(suggestion.name);
+    setSelectedLocation({
+      name: suggestion.name,
+      coordinates: suggestion.coordinates,
+    });
+    setLocationSearch(suggestion.name);
     setLocationSuggestions([]);
+  };
+
+  const handleClearLocation = () => {
+    setSelectedLocation(null);
+    setLocationSearch('');
+    setLocationSuggestions([]);
+  };
+
+  const handleAiCategorize = async () => {
+    if (!title && !content) return;
+    setIsCategorizing(true);
+    try {
+        const category = await categorizeNote(title, content, categories);
+        if (category) {
+            setCategoryId(category.id);
+        }
+    } catch (error) {
+        console.error("Failed to categorize note with AI", error);
+    } finally {
+        setIsCategorizing(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !content.trim()) {
-      setError('Title and content are required.');
-      return;
+    if (!validateForm()) {
+        return;
     }
-    
-    const selectedCategory = categories.find(c => c.id === selectedCategoryId);
 
-    const newNoteData: Omit<Note, 'id' | 'created_at' | 'isArchived' | 'user_id'> = {
-      title,
+    const selectedCategory = categories.find(c => c.id === categoryId);
+
+    const noteData: Note = {
+      id: noteToEdit?.id || new Date().toISOString() + Math.random(),
+      title: title.trim(),
       content,
       category: selectedCategory,
-      location: selectedLocation ? {
-        name: selectedLocation.name,
-        coordinates: selectedLocation.coordinates
-      } : undefined,
+      location: selectedLocation || undefined,
+      created_at: noteToEdit?.created_at || new Date().toISOString(),
+      isArchived: noteToEdit?.isArchived || false,
     };
-    onSave(newNoteData, existingNote?.id);
+    onSave(noteData);
   };
 
+  const isFormValid = validateForm; // Re-check on each render
+
+  const formTitle = noteToEdit ? 'Edit Note' : 'Add New Note';
+
   return (
-    <div className="fixed inset-0 bg-gray-900 bg-opacity-75 z-20 flex justify-center items-center p-4">
-        <div className="bg-gray-800 rounded-lg p-8 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-white mb-6">{existingNote ? 'Edit Note' : 'Add New Note'}</h2>
-            
-            <div className="mb-4">
-                <label htmlFor="natural-input" className="block text-sm font-medium text-gray-300 mb-2">Start with your idea</label>
-                <div className="relative">
-                    <textarea
-                        id="natural-input"
-                        value={naturalInput}
-                        onChange={(e) => setNaturalInput(e.target.value)}
-                        placeholder="e.g., 'remind me to buy milk at the grocery store near my current location'"
-                        className="w-full bg-gray-700 border border-gray-600 rounded-md p-3 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pr-28"
-                        rows={3}
-                    />
-                    <button onClick={handleParseText} disabled={isParsing || !naturalInput.trim()} className="absolute top-1/2 right-3 -translate-y-1/2 bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm font-semibold hover:bg-indigo-700 disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center">
-                        <SparklesIcon className="w-5 h-5 mr-1.5"/>
-                        {isParsing ? 'Parsing...' : 'Parse'}
-                    </button>
-                </div>
+    <div className="fixed inset-0 bg-black/60 z-20 flex justify-center items-center p-4 animate-fade-in">
+        <style>{`
+            @keyframes fade-in {
+                0% { opacity: 0; }
+                100% { opacity: 1; }
+            }
+            .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
+        `}</style>
+      <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-white">{formTitle}</h2>
+              <button type="button" onClick={onCancel} className="text-gray-400 hover:text-white">
+                <CloseIcon className="w-6 h-6" />
+              </button>
             </div>
 
-            <hr className="border-gray-600 my-6" />
+            <div className="mb-4">
+              <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-1">Title</label>
+              <input
+                type="text"
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className={`w-full bg-gray-700 text-white rounded-md ${errors.title ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-600 focus:border-indigo-500 focus:ring-indigo-500'}`}
+                required
+              />
+              <div className="flex justify-between items-center mt-1">
+                {errors.title ? <p className="text-sm text-red-400">{errors.title}</p> : <div></div>}
+                <p className={`text-sm ml-auto ${title.trim().length > TITLE_MAX_LENGTH ? 'text-red-400' : 'text-gray-400'}`}>
+                    {title.trim().length} / {TITLE_MAX_LENGTH}
+                </p>
+              </div>
+            </div>
 
-            <form onSubmit={handleSubmit}>
-                <div className="grid grid-cols-1 gap-6">
-                    <div>
-                        <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-2">Title</label>
-                        <input type="text" id="title" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md p-3 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" required/>
-                    </div>
-                    <div>
-                        <label htmlFor="content" className="block text-sm font-medium text-gray-300 mb-2">Content</label>
-                        <textarea id="content" value={content} onChange={e => setContent(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md p-3 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" rows={4} required></textarea>
-                    </div>
-                    <div>
-                        <label htmlFor="location" className="block text-sm font-medium text-gray-300 mb-2">Location</label>
-                        <div className="relative">
-                            <input type="text" id="location" value={locationQuery} onChange={e => {setLocationQuery(e.target.value); setSelectedLocation(null);}} placeholder="Search for a location..." className="w-full bg-gray-700 border border-gray-600 rounded-md p-3 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"/>
-                            {locationQuery && !selectedLocation && (
-                                <button type="button" onClick={() => {setLocationQuery(''); setLocationSuggestions([]);}} className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-white">
-                                    <XIcon className="w-5 h-5"/>
-                                </button>
-                            )}
-                        </div>
-                        {isSearching && <p className="text-sm text-gray-400 mt-2">Searching...</p>}
-                        {locationSuggestions.length > 0 && !selectedLocation && (
-                            <ul className="bg-gray-700 border border-gray-600 rounded-md mt-2 max-h-48 overflow-y-auto">
-                                {locationSuggestions.map((s, i) => (
-                                    <li key={`${s.name}-${i}`} onClick={() => handleSelectSuggestion(s)} className="p-3 hover:bg-gray-600 cursor-pointer text-white">
-                                        <p className="font-semibold">{s.name}</p>
-                                        <p className="text-sm text-gray-400">{s.address}</p>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-                     <div>
-                        <label htmlFor="category" className="block text-sm font-medium text-gray-300 mb-2">Category</label>
-                        <select id="category" value={selectedCategoryId || ''} onChange={e => setSelectedCategoryId(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-md p-3 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                            <option value="">No Category</option>
-                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
-                    </div>
+            <div className="mb-4">
+              <label htmlFor="content" className="block text-sm font-medium text-gray-300 mb-1">Content</label>
+              <textarea
+                id="content"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={5}
+                className={`w-full bg-gray-700 text-white rounded-md ${errors.content ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-600 focus:border-indigo-500 focus:ring-indigo-500'}`}
+              />
+              <div className="flex justify-between items-center mt-1">
+                {errors.content ? <p className="text-sm text-red-400">{errors.content}</p> : <div></div>}
+                <p className={`text-sm ml-auto ${content.length > CONTENT_MAX_LENGTH ? 'text-red-400' : 'text-gray-400'}`}>
+                    {content.length} / {CONTENT_MAX_LENGTH}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label htmlFor="category" className="block text-sm font-medium text-gray-300 mb-1">Category</label>
+                <div className="flex items-center gap-2">
+                    <select
+                        id="category"
+                        value={categoryId || ''}
+                        onChange={(e) => setCategoryId(e.target.value)}
+                        className="flex-grow w-full bg-gray-700 text-white rounded-md border-gray-600 focus:border-indigo-500 focus:ring-indigo-500"
+                    >
+                        <option value="">No Category</option>
+                        {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                    </select>
+                    <button 
+                        type="button" 
+                        onClick={handleAiCategorize} 
+                        disabled={isCategorizing || categories.length === 0}
+                        title="Suggest category with AI"
+                        className="p-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                    >
+                        {isCategorizing ? <SpinnerIcon className="w-5 h-5 animate-spin"/> : <AiIcon className="w-5 h-5"/>}
+                    </button>
                 </div>
-
-                {error && <p className="text-red-400 mt-4 text-sm">{error}</p>}
-
-                <div className="flex justify-end gap-4 mt-8">
-                    <button type="button" onClick={onCancel} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-md transition-colors">Cancel</button>
-                    <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition-colors">Save Note</button>
+              </div>
+              
+              <div className="relative">
+                <label htmlFor="location" className="block text-sm font-medium text-gray-300 mb-1">Location</label>
+                <div className="relative">
+                  <MapPinIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    id="location"
+                    value={locationSearch}
+                    onChange={(e) => {
+                      setLocationSearch(e.target.value);
+                      if (selectedLocation) setSelectedLocation(null);
+                    }}
+                    placeholder="Search for a location with AI..."
+                    className="w-full bg-gray-700 text-white rounded-md border-gray-600 focus:border-indigo-500 focus:ring-indigo-500 pl-10"
+                    disabled={!userLocation}
+                  />
+                  {isSearching && <SpinnerIcon className="w-5 h-5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 animate-spin" />}
+                  {selectedLocation && (
+                    <button type="button" onClick={handleClearLocation} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                        <CloseIcon className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
-            </form>
-        </div>
+                 {!userLocation && <p className="text-xs text-yellow-400 mt-1">Enable location access to search.</p>}
+
+                {locationSuggestions.length > 0 && (
+                  <ul className="absolute z-10 w-full mt-1 bg-gray-900 border border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    {locationSuggestions.map((s, index) => (
+                      <li
+                        key={index}
+                        onClick={() => handleSelectSuggestion(s)}
+                        className="px-4 py-2 text-white hover:bg-indigo-600 cursor-pointer"
+                      >
+                        <p className="font-semibold">{s.name}</p>
+                        <p className="text-sm text-gray-400">{s.address}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-900 px-6 py-4 flex justify-end gap-3">
+            <button type="button" onClick={onCancel} className="px-4 py-2 text-sm font-semibold text-gray-300 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors">
+              Cancel
+            </button>
+            <button 
+                type="submit"
+                disabled={Object.keys(errors).length > 0}
+                className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
+            >
+              {noteToEdit ? 'Save Changes' : 'Add Note'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };

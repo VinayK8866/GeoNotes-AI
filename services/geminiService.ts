@@ -1,119 +1,89 @@
+// FIX: Implemented Gemini Service to handle AI functionality
 import { GoogleGenAI, Type } from "@google/genai";
-import { Coordinates, LocationSuggestion } from "../types";
+import { Coordinates, Category, LocationSuggestion } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// IMPORTANT: process.env is not available in this browser-based environment.
+// Replace "YOUR_GEMINI_API_KEY_HERE" with your actual Gemini API key.
+const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE";
 
-const noteSchema = {
-    type: Type.OBJECT,
-    properties: {
-        title: {
-            type: Type.STRING,
-            description: "A short, descriptive title for the note. Should be 2-5 words."
-        },
-        content: {
-            type: Type.STRING,
-            description: "The full content of the note or reminder. This should capture the user's core request."
-        },
-        locationQuery: {
-            type: Type.STRING,
-            description: "A search query string to find the relevant location for the note, e.g., 'nearest grocery store' or 'home'. If no specific location is mentioned, this can be null."
-        },
-    },
-    required: ["title", "content"]
-};
+if (!GEMINI_API_KEY || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY_HERE") {
+    console.warn("Gemini API key is not set in services/geminiService.ts. AI features will fail.");
+}
+
+const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 const locationSuggestionSchema = {
-    type: Type.ARRAY,
-    items: {
-        type: Type.OBJECT,
-        properties: {
-            name: { type: Type.STRING, description: "The primary name of the location or business." },
-            address: { type: Type.STRING, description: "A simplified address or descriptive location (e.g., 'SoMa, San Francisco, CA')." },
-            coordinates: {
-                type: Type.OBJECT,
-                properties: {
-                    latitude: { type: Type.NUMBER },
-                    longitude: { type: Type.NUMBER }
-                },
-                required: ["latitude", "longitude"]
+    type: Type.OBJECT,
+    properties: {
+        name: { type: Type.STRING, description: 'The name of the location or place.' },
+        address: { type: Type.STRING, description: 'The full address of the location.' },
+        coordinates: {
+            type: Type.OBJECT,
+            properties: {
+                latitude: { type: Type.NUMBER },
+                longitude: { type: Type.NUMBER }
             },
-            placeType: { type: Type.STRING, description: "The category or type of the place (e.g., 'Restaurant', 'Park', 'Coffee Shop')." }
+            required: ['latitude', 'longitude']
         },
-        required: ["name", "address", "coordinates"]
-    }
+        placeType: { type: Type.STRING, description: 'A category for the place, e.g., "Restaurant", "Park", "Museum".' }
+    },
+    required: ['name', 'address', 'coordinates', 'placeType']
 };
 
-export const parseNoteFromText = async (text: string, userLocation: Coordinates | null): Promise<any> => {
-    
-    let prompt = `Parse the following user request to create a location-based note. Extract a title, content, and a location search query.`;
-
-    if (userLocation) {
-        prompt += ` The user's current location is latitude ${userLocation.latitude}, longitude ${userLocation.longitude}. Use this for context if they mention relative locations like "here" or "nearby".`
-    }
-    
-    prompt += `\n\nUser request: "${text}"`;
-
+export const suggestLocations = async (query: string, userLocation: Coordinates): Promise<LocationSuggestion[]> => {
     try {
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: prompt,
+            contents: `Find up to 5 real-world locations matching this description: "${query}". My current location is latitude ${userLocation.latitude}, longitude ${userLocation.longitude}. Prioritize relevant places near me.`,
             config: {
-                responseMimeType: "application/json",
-                responseSchema: noteSchema,
+                tools: [{ googleMaps: {} }],
+                toolConfig: {
+                    retrievalConfig: {
+                        latLng: userLocation
+                    }
+                },
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: locationSuggestionSchema
+                }
             },
         });
 
-        const responseText = response.text;
+        const jsonString = response.text.trim();
+        const suggestions = JSON.parse(jsonString);
+        return suggestions;
+
+    } catch (error) {
+        console.error('Error suggesting locations with Gemini:', error);
+        // Fallback or re-throw error
+        throw new Error('Failed to get location suggestions from AI.');
+    }
+};
+
+export const categorizeNote = async (title: string, content: string, categories: Category[]): Promise<Category | null> => {
+    if (categories.length === 0) return null;
+
+    try {
+        const categoryList = categories.map(c => `"${c.name}" (id: ${c.id})`).join(', ');
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: `Analyze the following note and choose the single most relevant category for it from the provided list. Respond with only the ID of the chosen category.
+            
+            Note Title: "${title}"
+            Note Content: "${content}"
+            
+            Available Categories: ${categoryList}`,
+        });
         
-        if (!responseText) {
-            throw new Error('AI response was empty.');
-        }
-
-        return JSON.parse(responseText);
-
-    } catch (error) {
-        console.error("Error parsing text with AI:", error);
-        throw new Error("Failed to process your request with AI. Please try again.");
-    }
-};
-
-export const searchLocations = async (query: string, userLocation: Coordinates | null): Promise<LocationSuggestion[]> => {
-    if (!query.trim()) {
-        return [];
-    }
-
-    let prompt = `Act as a geocoding API. Given the search query, provide a list of up to 5 potential matching locations. For each location, provide its name, a simple address, its precise latitude and longitude, and the type of place (e.g., 'Cafe', 'Park').`;
-
-    if (userLocation) {
-        prompt += ` The user's current location is latitude ${userLocation.latitude}, longitude ${userLocation.longitude}. Prioritize results that are relevant and potentially close to this location.`
-    }
-
-    prompt += ` Query: "${query}"`;
-
-
-    try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: locationSuggestionSchema,
-            },
-        });
-
-        const responseText = response.text;
-
-        if (!responseText) {
-            return [];
-        }
-
-        const suggestions = JSON.parse(responseText);
-        // Ensure the response is an array before returning
-        return Array.isArray(suggestions) ? suggestions : [];
+        const categoryId = response.text.trim();
+        const foundCategory = categories.find(c => c.id === categoryId);
+        
+        return foundCategory || null;
 
     } catch (error) {
-        console.error("Error searching locations with AI:", error);
-        // In case of error, return an empty array to avoid crashing the UI
-        return [];
+        console.error('Error categorizing note with Gemini:', error);
+        return null; // Don't block user flow if AI fails
     }
 };
