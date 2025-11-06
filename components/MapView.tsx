@@ -1,9 +1,7 @@
 import React from 'react';
-import ReactDOMServer from 'react-dom/server';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Note, Coordinates } from '../types';
-import { LocationPinIcon } from './Icons';
 
 // Helper component to recenter the map when the user's location changes
 const ChangeView: React.FC<{ center: L.LatLngExpression; zoom: number }> = ({ center, zoom }) => {
@@ -25,9 +23,9 @@ const userLocationIcon = new L.DivIcon({
 
 // Custom icon for note markers, colored by category
 const noteIcon = (color = 'text-gray-400') => new L.DivIcon({
-  html: ReactDOMServer.renderToString(
-    <LocationPinIcon className={`w-8 h-8 ${color}`} />
-  ),
+  html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 ${color}">
+           <path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 005.169-4.418c1.558-2.209 2.221-4.664 2.221-7.149C20 6.065 16.418 3 12 3S4 6.065 4 10.5c0 2.485.663 4.94 2.22 7.149a16.975 16.975 0 005.17 4.418zM12 12a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" clip-rule="evenodd" />
+         </svg>`,
   className: 'bg-transparent border-0',
   iconSize: [32, 32],
   iconAnchor: [16, 32], // Point of the pin
@@ -42,7 +40,6 @@ interface MapViewProps {
   hasMoreOnlineNotes?: boolean;
 }
 
-// FIX: Changed from a named export to a const to allow for a default export.
 const MapView: React.FC<MapViewProps> = ({ notes, userLocation, activeNoteId, hasMoreOnlineNotes }) => {
   const notesWithLocation = notes.filter(n => n.location);
 
@@ -53,7 +50,7 @@ const MapView: React.FC<MapViewProps> = ({ notes, userLocation, activeNoteId, ha
         : [51.505, -0.09]); // A default fallback location
 
   return (
-    <div className="bg-slate-700 rounded-lg h-[60vh] overflow-hidden shadow-lg border border-slate-600 relative">
+    <div className="bg-slate-700 rounded-lg h-[60vh] overflow-hidden shadow-lg border border-slate-600 relative z-0">
       <MapContainer center={center} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
         <ChangeView center={center} zoom={13} />
         <TileLayer
@@ -94,5 +91,4 @@ const MapView: React.FC<MapViewProps> = ({ notes, userLocation, activeNoteId, ha
   );
 };
 
-// FIX: Added a default export for the component to be compatible with React.lazy.
 export default MapView;

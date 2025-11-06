@@ -47,8 +47,8 @@ export const useGeolocation = () => {
 
     const watcher = navigator.geolocation.watchPosition(handleSuccess, handleError, {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
+        timeout: 20000, // Increased timeout to 20 seconds
+        maximumAge: 60000 // Allow using a cached position up to 1 minute old
     });
 
     return () => navigator.geolocation.clearWatch(watcher);

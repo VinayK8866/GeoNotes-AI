@@ -1,11 +1,27 @@
-const CACHE_NAME = 'geonotes-ai-cache-v1';
+const CACHE_NAME = 'geonotes-ai-cache-v2';
 const APP_SHELL_URLS = [
-    '/', '/index.html', '/index.tsx', '/App.tsx', '/types.ts', '/constants.ts',
-    '/hooks/useGeolocation.ts', '/utils/geolocation.ts', '/utils/db.ts',
+    '/',
+    '/index.html',
+    '/index.tsx',
+    '/App.tsx',
+    '/types.ts',
+    '/constants.ts',
+    '/supabaseClient.ts',
+    '/hooks/useGeolocation.ts',
+    '/hooks/useDebounce.ts',
+    '/utils/geolocation.ts',
+    '/utils/db.ts',
     '/services/geminiService.ts',
-    '/components/CategoryFilter.tsx', '/components/CategoryPill.tsx', '/components/Header.tsx',
-    '/components/Icons.tsx', '/components/NoteCard.tsx', '/components/NoteForm.tsx',
-    '/components/NotificationPermissionBanner.tsx', '/components/UndoToast.tsx'
+    '/components/CategoryFilter.tsx',
+    '/components/CategoryPill.tsx',
+    '/components/ErrorToast.tsx',
+    '/components/Header.tsx',
+    '/components/Icons.tsx',
+    '/components/MapView.tsx',
+    '/components/NoteCard.tsx',
+    '/components/NoteForm.tsx',
+    '/components/NotificationPermissionBanner.tsx',
+    '/components/UndoToast.tsx'
 ];
 
 
