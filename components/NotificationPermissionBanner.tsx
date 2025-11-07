@@ -7,7 +7,7 @@ interface NotificationPermissionBannerProps {
 
 export const NotificationPermissionBanner: React.FC<NotificationPermissionBannerProps> = ({ status, onRequest }) => {
   return (
-    <div className="bg-indigo-900/50 border-b border-indigo-700 text-indigo-200 text-sm">
+    <div className="bg-indigo-100 dark:bg-indigo-900/50 border-b border-indigo-200 dark:border-indigo-700 text-indigo-800 dark:text-indigo-200 text-sm">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-4">
           <p>
             {status === 'default'

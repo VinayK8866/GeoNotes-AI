@@ -1,4 +1,3 @@
-// FIX: Created Icons.tsx to provide icon components for the application.
 import React from 'react';
 
 export const LocationPinIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -60,5 +59,49 @@ export const SpinnerIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export const AiIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
+    </svg>
+);
+
+export const ArchiveBoxIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" {...props}>
+        <path d="M3 3.5A1.5 1.5 0 014.5 2h11A1.5 1.5 0 0117 3.5v1.102a.75.75 0 01-.275.58L14.5 7.43v5.07a1.5 1.5 0 01-1.5 1.5H7a1.5 1.5 0 01-1.5-1.5V7.43L3.275 5.182A.75.75 0 013 4.602V3.5zM8.5 11h3a.5.5 0 01.5.5v1a.5.5 0 01-1 0v-.5h-2v.5a.5.5 0 01-1 0v-1a.5.5 0 01.5-.5zM4.5 3.5V4.6l2.25 1.5V3.5h-2.25zm8.75 2.6V3.5h-2.25v2.6l2.25-1.5z" />
+        <path d="M3 14.5A1.5 1.5 0 004.5 16h11a1.5 1.5 0 001.5-1.5V8.01a.75.75 0 00-1.5 0v6.49A.5.5 0 0115.5 15h-11a.5.5 0 01-.5-.5V8.01a.75.75 0 00-1.5 0v6.49z" />
+    </svg>
+);
+
+export const ArrowUpOnSquareIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" {...props}>
+        <path fillRule="evenodd" d="M3.5 13A1.5 1.5 0 005 14.5h10a1.5 1.5 0 001.5-1.5V6.828a.75.75 0 00.22-1.28l-1.78-1.022a.75.75 0 00-.97.242l-.228.396A.75.75 0 005.18 6.5h-.68a.75.75 0 00-.53.22L3.22 7.47a.75.75 0 00-.22 1.28l1.78 1.022A.75.75 0 005.18 10h.68a.75.75 0 00.53-.22l.228-.396a.75.75 0 00-.242-.97L4.6 7.393V13h-.25a.75.75 0 00-.75.75 1.5 1.5 0 001.5 1.5h10a1.5 1.5 0 001.5-1.5V7.393l-1.78-1.022a.75.75 0 10-.728 1.264L14.25 8.18v4.82h-.25a.75.75 0 00-.75.75 1.5 1.5 0 001.5 1.5h.75a.75.75 0 00.75-.75V6.828a.75.75 0 00-.22-1.28L15 4.528V3.5A1.5 1.5 0 0013.5 2h-7A1.5 1.5 0 005 3.5v1.028l-1.78 1.022A.75.75 0 003 6.828V13zM9 8.25a.75.75 0 000 1.5h2a.75.75 0 000-1.5H9z" clipRule="evenodd" />
+    </svg>
+);
+
+export const ArrowsUpDownIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" {...props}>
+        <path fillRule="evenodd" d="M10 3.25a.75.75 0 01.75.75v10.31l2.22-2.22a.75.75 0 111.06 1.06l-3.5 3.5a.75.75 0 01-1.06 0l-3.5-3.5a.75.75 0 111.06-1.06l2.22 2.22V4a.75.75 0 01.75-.75z" clipRule="evenodd" />
+    </svg>
+);
+
+export const SunIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" {...props}>
+      <path d="M10 2a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 2zM10 15a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 15zM10 7a3 3 0 100 6 3 3 0 000-6zM15.657 5.404a.75.75 0 10-1.06-1.06l-1.061 1.06a.75.75 0 001.06 1.06l1.06-1.06zM6.404 14.596a.75.75 0 10-1.06-1.06l-1.06 1.06a.75.75 0 001.06 1.06l1.06-1.06zM18 10a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 0118 10zM5 10a.75.75 0 01-.75.75h-1.5a.75.75 0 010-1.5h1.5A.75.75 0 015 10zM14.596 14.596a.75.75 0 101.06-1.06l-1.06-1.061a.75.75 0 10-1.06 1.06l1.06 1.06zM5.404 5.404a.75.75 0 101.06-1.06l-1.06-1.06a.75.75 0 00-1.06 1.06l1.06 1.06z" />
+    </svg>
+);
+
+export const MoonIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" {...props}>
+      <path fillRule="evenodd" d="M7.455 2.104a.75.75 0 00-.965.524 8.5 8.5 0 0010.9 10.9.75.75 0 00.523-.965A7 7 0 018.655 2.25a.75.75 0 00-.11-.146z" clipRule="evenodd" />
+    </svg>
+);
+
+export const ComputerDesktopIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" {...props}>
+      <path d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm2 0v8h10V5H5z" />
+      <path d="M2 15.5a.5.5 0 01.5-.5h15a.5.5 0 010 1H2.5a.5.5 0 01-.5-.5z" />
+    </svg>
+);
+
+export const ShareIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" {...props}>
+      <path d="M13 4.5a2.5 2.5 0 11.702 4.289l-3.296 3.296a2.5 2.5 0 11-1.414-1.414l3.296-3.296A2.5 2.5 0 0113 4.5zM4.5 13a2.5 2.5 0 114.289-.702l-3.296-3.296a2.5 2.5 0 11-1.414 1.414l3.296 3.296A2.5 2.5 0 014.5 13z" />
     </svg>
 );

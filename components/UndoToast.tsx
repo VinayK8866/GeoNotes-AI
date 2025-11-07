@@ -8,7 +8,7 @@ interface UndoToastProps {
 
 export const UndoToast: React.FC<UndoToastProps> = ({ message, onUndo }) => {
   return (
-    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 bg-gray-900 text-white py-3 px-5 rounded-lg shadow-lg flex items-center justify-between z-30 border border-gray-700 animate-fade-in-up">
+    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 bg-gray-800 text-white dark:bg-gray-900 py-3 px-5 rounded-lg shadow-lg flex items-center justify-between z-30 border border-gray-700 animate-fade-in-up">
       <style>{`
         @keyframes fade-in-up {
           0% {

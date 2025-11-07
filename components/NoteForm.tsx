@@ -188,32 +188,25 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[1100] flex justify-center items-start p-4 pt-16 sm:pt-24" onClick={onCancel}>
-        <style>{`
-            @keyframes fade-in {
-                0% { opacity: 0; }
-                100% { opacity: 1; }
-            }
-            .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
-        `}</style>
-      <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[85vh] overflow-y-auto text-gray-900 dark:text-white" onClick={(e) => e.stopPropagation()}>
         <form onSubmit={handleSubmit} noValidate>
           <div className="p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-white">{formTitle}</h2>
-              <button type="button" onClick={onCancel} className="text-gray-400 hover:text-white">
+              <h2 className="text-2xl font-bold">{formTitle}</h2>
+              <button type="button" onClick={onCancel} className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
                 <CloseIcon className="w-6 h-6" />
               </button>
             </div>
 
             <div className="mb-4">
-              <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-1">Title</label>
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
                <div className="flex items-center gap-2">
                     <input
                         type="text"
                         id="title"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
-                        className={`flex-grow w-full bg-gray-700 text-white rounded-md p-2 ${errors.title ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-600 focus:border-indigo-500 focus:ring-indigo-500'}`}
+                        className={`flex-grow w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md p-2 border ${errors.title ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-indigo-500'}`}
                         required
                     />
                     <button
@@ -221,7 +214,7 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
                         onClick={handleAiFill}
                         disabled={isAutoFilling || !title.trim()}
                         title="Auto-fill note with AI (requires a title)"
-                        className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                        className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-gray-500 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
                     >
                         {isAutoFilling ? (
                             <>
@@ -237,8 +230,8 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
                     </button>
                 </div>
               <div className="flex justify-between items-center mt-1">
-                {errors.title ? <p className="text-sm text-red-400">{errors.title}</p> : <div></div>}
-                <p className={`text-sm ml-auto ${title.trim().length > TITLE_MAX_LENGTH ? 'text-red-400' : 'text-gray-400'}`}>
+                {errors.title ? <p className="text-sm text-red-500 dark:text-red-400">{errors.title}</p> : <div></div>}
+                <p className={`text-sm ml-auto ${title.trim().length > TITLE_MAX_LENGTH ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
                     {title.trim().length} / {TITLE_MAX_LENGTH}
                 </p>
               </div>
@@ -246,13 +239,13 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
 
             <div className="mb-4">
               <div className="flex justify-between items-center mb-1">
-                  <label htmlFor="content" className="block text-sm font-medium text-gray-300">Content</label>
+                  <label htmlFor="content" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Content</label>
                   <button
                       type="button"
                       onClick={handleAiAssist}
                       disabled={isGeneratingContent || !title.trim()}
                       title="Generate content with AI (requires a title)"
-                      className="flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-indigo-300 rounded-md hover:bg-indigo-900/50 disabled:text-gray-500 disabled:cursor-not-allowed disabled:bg-transparent transition-colors"
+                      className="flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-300 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed disabled:bg-transparent transition-colors"
                   >
                       {isGeneratingContent ? (
                           <>
@@ -272,11 +265,11 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 rows={5}
-                className={`w-full bg-gray-700 text-white rounded-md p-2 ${errors.content ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-600 focus:border-indigo-500 focus:ring-indigo-500'}`}
+                className={`w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md p-2 border ${errors.content ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-indigo-500'}`}
               />
               <div className="flex justify-between items-center mt-1">
-                {errors.content ? <p className="text-sm text-red-400">{errors.content}</p> : <div></div>}
-                <p className={`text-sm ml-auto ${content.length > CONTENT_MAX_LENGTH ? 'text-red-400' : 'text-gray-400'}`}>
+                {errors.content ? <p className="text-sm text-red-500 dark:text-red-400">{errors.content}</p> : <div></div>}
+                <p className={`text-sm ml-auto ${content.length > CONTENT_MAX_LENGTH ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
                     {content.length} / {CONTENT_MAX_LENGTH}
                 </p>
               </div>
@@ -284,13 +277,13 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label htmlFor="category" className="block text-sm font-medium text-gray-300 mb-1">Category</label>
+                <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
                 <div className="flex items-center gap-2">
                     <select
                         id="category"
                         value={categoryId || ''}
                         onChange={(e) => setCategoryId(e.target.value)}
-                        className="flex-grow w-full bg-gray-700 text-white rounded-md p-2 border-gray-600 focus:border-indigo-500 focus:ring-indigo-500"
+                        className="flex-grow w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md p-2 border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-indigo-500"
                     >
                         <option value="">No Category</option>
                         {categories.map(cat => (
@@ -302,7 +295,7 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
                         onClick={handleAiCategorize} 
                         disabled={isCategorizing || categories.length === 0}
                         title="Suggest category with AI"
-                        className="p-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                        className="p-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-500 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
                     >
                         {isCategorizing ? <SpinnerIcon className="w-5 h-5 animate-spin"/> : <AiIcon className="w-5 h-5"/>}
                     </button>
@@ -310,7 +303,7 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
               </div>
               
               <div className="relative">
-                <label htmlFor="location" className="block text-sm font-medium text-gray-300 mb-1">Location</label>
+                <label htmlFor="location" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location</label>
                 <div className="relative">
                   <MapPinIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
@@ -322,7 +315,7 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
                       if (selectedLocation) setSelectedLocation(null);
                     }}
                     placeholder="Search for a location with AI..."
-                    className="w-full bg-gray-700 text-white rounded-md p-2 border-gray-600 focus:border-indigo-500 focus:ring-indigo-500 pl-10"
+                    className="w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md p-2 border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-indigo-500 pl-10"
                     disabled={!userLocation}
                   />
                   {isSearching && <SpinnerIcon className="w-5 h-5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 animate-spin" />}
@@ -332,18 +325,18 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
                     </button>
                   )}
                 </div>
-                 {!userLocation && <p className="text-xs text-yellow-400 mt-1">Enable location access to search.</p>}
+                 {!userLocation && <p className="text-xs text-yellow-500 dark:text-yellow-400 mt-1">Enable location access to search.</p>}
 
                 {locationSuggestions.length > 0 && (
-                  <ul className="absolute z-10 w-full mt-1 bg-gray-900 border border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  <ul className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
                     {locationSuggestions.map((s, index) => (
                       <li
                         key={index}
                         onClick={() => handleSelectSuggestion(s)}
-                        className="px-4 py-2 text-white hover:bg-indigo-600 cursor-pointer"
+                        className="px-4 py-2 text-gray-900 dark:text-white hover:bg-indigo-600 hover:text-white cursor-pointer"
                       >
                         <p className="font-semibold">{s.name}</p>
-                        <p className="text-sm text-gray-400">{s.address}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{s.address}</p>
                       </li>
                     ))}
                   </ul>
@@ -352,14 +345,14 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
             </div>
           </div>
 
-          <div className="bg-gray-900 px-6 py-4 flex justify-end gap-3 sticky bottom-0">
-            <button type="button" onClick={onCancel} className="px-4 py-2 text-sm font-semibold text-gray-300 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors">
+          <div className="bg-gray-100 dark:bg-gray-900 px-6 py-4 flex justify-end gap-3 sticky bottom-0 border-t border-gray-200 dark:border-gray-700">
+            <button type="button" onClick={onCancel} className="px-4 py-2 text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
               Cancel
             </button>
             <button 
                 type="submit"
                 disabled={Object.keys(errors).length > 0}
-                className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
+                className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors disabled:bg-gray-500 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
             >
               {noteToEdit ? 'Save Changes' : 'Add Note'}
             </button>

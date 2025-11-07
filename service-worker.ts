@@ -9,6 +9,7 @@ const APP_SHELL_URLS = [
     '/supabaseClient.ts',
     '/hooks/useGeolocation.ts',
     '/hooks/useDebounce.ts',
+    '/hooks/useTheme.ts',
     '/utils/geolocation.ts',
     '/utils/db.ts',
     '/services/geminiService.ts',
@@ -35,14 +36,12 @@ self.addEventListener('install', (event: any) => {
 });
 
 self.addEventListener('fetch', (event: any) => {
-    // Always go to the network for Supabase calls, never cache them.
     if (event.request.url.includes('supabase.co')) {
         return; 
     }
 
     event.respondWith(
         caches.match(event.request).then(response => {
-            // Serve from cache if found, otherwise fetch from network.
             return response || fetch(event.request);
         })
     );
@@ -65,20 +64,30 @@ self.addEventListener('activate', (event: any) => {
   );
 });
 
+self.addEventListener('message', (event: any) => {
+    if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+        const { title, body, tag } = event.data.payload;
+        event.waitUntil(
+            (self as any).registration.showNotification(title, {
+                body: body,
+                icon: '/vite.svg',
+                tag: tag
+            })
+        );
+    }
+});
+
 self.addEventListener('notificationclick', (event: any) => {
   console.log('On notification click: ', event.notification.tag);
   event.notification.close();
 
-  // This looks for an existing window and focuses it.
   event.waitUntil(
     (self as any).clients.matchAll({ type: 'window' }).then((clientList: any[]) => {
-      // If a window is already open, focus it.
       for (const client of clientList) {
         if ('focus' in client) {
           return client.focus();
         }
       }
-      // Otherwise, open a new window.
       if ((self as any).clients.openWindow) {
         return (self as any).clients.openWindow('/');
       }
