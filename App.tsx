@@ -1,3 +1,9 @@
+
+
+
+
+
+
 import React, { useState, useEffect, useCallback, lazy, Suspense, useRef, useMemo } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { Note, Category, SortOption } from './types';
@@ -6,7 +12,7 @@ import { useTheme } from './hooks/useTheme';
 import { getDistance } from './utils/geolocation';
 import { REMINDER_RADIUS_METERS, NOTES_PER_PAGE } from './constants';
 import * as db from './utils/db';
-import { supabase } from './supabaseClient';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { Header } from './components/Header';
 import { NoteCard } from './components/NoteCard';
 import { CategoryFilter } from './components/CategoryFilter';
@@ -15,6 +21,8 @@ import { ErrorToast } from './components/ErrorToast';
 import { NotificationPermissionBanner } from './components/NotificationPermissionBanner';
 import { PlusIcon, SpinnerIcon, CloseIcon, AiIcon, ArrowsUpDownIcon } from './components/Icons';
 import { searchNotesWithAi } from './services/geminiService';
+import { NoteCardSkeleton } from './components/NoteCardSkeleton';
+import { EmptyState } from './components/EmptyState';
 
 const MapView = lazy(() => import('./components/MapView'));
 const NoteForm = lazy(() => import('./components/NoteForm'));
@@ -26,34 +34,10 @@ const DEFAULT_CATEGORIES: Category[] = [
     { id: 'cat-4', name: 'Ideas', color: 'bg-purple-500' },
 ];
 
-const MOCK_NOTES: Note[] = [
-    { id: crypto.randomUUID(), title: 'Finalize Q3 Report', content: '- Review sales data\n- Write executive summary\n- Circulate for feedback', category: DEFAULT_CATEGORIES[0], created_at: new Date('2024-08-05T10:00:00Z').toISOString(), isArchived: false },
-    { id: crypto.randomUUID(), title: 'Book flight to NYC', content: 'Check prices for September 15-20. Prefer a morning flight.', category: DEFAULT_CATEGORIES[1], created_at: new Date('2024-08-04T14:30:00Z').toISOString(), isArchived: false },
-    { id: crypto.randomUUID(), title: 'Grocery List', content: '- Milk\n- Bread\n- Eggs\n- Avocados\n- Chicken breast', category: DEFAULT_CATEGORIES[2], location: { name: 'Trader Joe\'s, Downtown', coordinates: { latitude: 34.0522, longitude: -118.2437 }}, created_at: new Date('2024-08-05T09:00:00Z').toISOString(), isArchived: false },
-    { id: crypto.randomUUID(), title: 'App Idea: Pet Finder', content: 'Develop an app that uses image recognition to identify lost pets. Gamify the search process.', category: DEFAULT_CATEGORIES[3], created_at: new Date('2024-08-03T18:00:00Z').toISOString(), isArchived: false },
-    { id: crypto.randomUUID(), title: 'Pick up dry cleaning', content: 'Receipt is in the car glove box. They close at 6 PM.', category: DEFAULT_CATEGORIES[1], location: { name: 'Sunshine Cleaners', coordinates: { latitude: 34.0600, longitude: -118.2500 }}, created_at: new Date('2024-08-05T11:00:00Z').toISOString(), isArchived: false },
-    { id: crypto.randomUUID(), title: 'Client Meeting Prep', content: 'Prepare slides for Acme Corp presentation. Focus on YoY growth metrics.', category: DEFAULT_CATEGORIES[0], created_at: new Date('2024-08-02T16:00:00Z').toISOString(), isArchived: false },
-    { id: crypto.randomUUID(), title: 'Buy birthday gift for Sarah', content: 'She mentioned wanting a new cookbook or a nice bottle of wine.', category: DEFAULT_CATEGORIES[2], created_at: new Date('2024-08-01T12:00:00Z').toISOString(), isArchived: false },
-    { id: crypto.randomUUID(), title: 'Brainstorm marketing slogans', content: 'Need something catchy for the new "Nova" product launch.', category: DEFAULT_CATEGORIES[3], created_at: new Date('2024-07-31T15:00:00Z').toISOString(), isArchived: false },
-    { id: crypto.randomUUID(), title: 'Renew gym membership', content: 'Current plan expires at the end of the month.', category: DEFAULT_CATEGORIES[1], created_at: new Date('2024-07-30T08:00:00Z').toISOString(), isArchived: false },
-    { id: crypto.randomUUID(), title: 'Hardware Store Run', content: '- Screws\n- Wood glue\n- Sandpaper (120 grit)', category: DEFAULT_CATEGORIES[2], location: { name: 'The Home Depot', coordinates: { latitude: 40.7128, longitude: -74.0060 }}, created_at: new Date('2024-08-05T13:00:00Z').toISOString(), isArchived: false },
-    { id: crypto.randomUUID(), title: 'Plan weekend hike', content: 'Look up trails at Griffith Park. Check weather forecast.', category: DEFAULT_CATEGORIES[1], location: { name: 'Griffith Observatory', coordinates: { latitude: 34.1184, longitude: -118.3004 }}, created_at: new Date('2024-07-29T11:00:00Z').toISOString(), isArchived: true },
-    { id: crypto.randomUUID(), title: 'Update project timeline', content: 'Adjust dates for Phase 2 deliverables. Inform stakeholders.', category: DEFAULT_CATEGORIES[0], created_at: new Date('2024-07-28T10:00:00Z').toISOString(), isArchived: false },
-    { id: crypto.randomUUID(), title: 'Idea for a novel', content: 'A detective story set in a futuristic, underwater city.', category: DEFAULT_CATEGORIES[3], created_at: new Date('2024-07-27T20:00:00Z').toISOString(), isArchived: false },
-    { id: crypto.randomUUID(), title: 'Get a new passport photo', content: 'Make sure it meets the state department requirements.', category: DEFAULT_CATEGORIES[1], created_at: new Date('2024-07-26T13:00:00Z').toISOString(), isArchived: false },
-    { id: crypto.randomUUID(), title: 'Return library books', content: '"Dune" and "The Martian" are due on Friday.', category: DEFAULT_CATEGORIES[1], location: { name: 'Central Library', coordinates: { latitude: 34.0544, longitude: -118.2542 }}, created_at: new Date('2024-08-05T15:00:00Z').toISOString(), isArchived: false },
-    { id: crypto.randomUUID(), title: 'Submit expense report', content: 'Include receipts for the conference travel and meals.', category: DEFAULT_CATEGORIES[0], created_at: new Date('2024-07-25T09:00:00Z').toISOString(), isArchived: true },
-    { id: crypto.randomUUID(), title: 'Pick up new glasses', content: 'Order is ready at the optometrist.', category: DEFAULT_CATEGORIES[2], created_at: new Date('2024-07-24T17:00:00Z').toISOString(), isArchived: false },
-    { id: crypto.randomUUID(), title: 'Research new coffee machine', content: 'Look at reviews for Breville vs. De\'Longhi espresso makers.', category: DEFAULT_CATEGORIES[3], created_at: new Date('2024-07-23T19:00:00Z').toISOString(), isArchived: false },
-    { id: crypto.randomUUID(), title: 'Schedule dentist appointment', content: 'Due for a cleaning. Call Dr. Smith\'s office.', category: DEFAULT_CATEGORIES[1], created_at: new Date('2024-07-22T11:30:00Z').toISOString(), isArchived: false },
-    { id: crypto.randomUUID(), title: 'Take photos at Golden Gate', content: 'Go during sunset for the best light.', category: DEFAULT_CATEGORIES[1], location: { name: 'Golden Gate Bridge Welcome Center', coordinates: { latitude: 37.8078, longitude: -122.4750 }}, created_at: new Date('2024-07-21T18:00:00Z').toISOString(), isArchived: false },
-];
-
 const App: React.FC = () => {
-  const USE_MOCK_DATA = false;
-
   const { theme, setTheme, effectiveTheme } = useTheme();
   const [session, setSession] = useState<Session | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [notes, setNotes] = useState<Note[]>([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -79,13 +63,18 @@ const App: React.FC = () => {
   const [aiSearchResult, setAiSearchResult] = useState<string | null>(null);
 
   const { location, error: locationError, requestLocation } = useGeolocation();
-  const observer = useRef<IntersectionObserver | null>(null);
   const noteRefs = useRef(new Map<string, HTMLDivElement>());
 
   const syncAndFetchInitialNotes = useCallback(async (currentSession: Session) => {
-    if (!isOnline || isSyncing) return;
-    setError(null);
     setIsSyncing(true);
+    if (!navigator.onLine) {
+      setError("You are offline. Showing locally saved data.");
+      const localNotes = await db.getNotesFromDB();
+      setNotes(localNotes);
+      setIsSyncing(false);
+      return;
+    };
+    setError(null);
     
     try {
       const queuedUpdates = await db.getQueuedUpdates();
@@ -109,18 +98,22 @@ const App: React.FC = () => {
         console.log('Offline sync complete.');
       }
 
+      const from = 0;
+      const to = NOTES_PER_PAGE - 1;
       const { data: onlineNotes, error: fetchError } = await supabase
         .from('notes')
         .select('*')
         .eq('user_id', currentSession.user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (fetchError) throw fetchError;
       
       if (onlineNotes) {
         await db.saveAllNotesToDB(onlineNotes);
         setNotes(onlineNotes);
-        setHasMoreOnlineNotes(onlineNotes.length >= NOTES_PER_PAGE);
+        setPage(1);
+        setHasMoreOnlineNotes(onlineNotes.length === NOTES_PER_PAGE);
       }
     } catch (err: any) {
       setError(`Could not sync with server. Reason: ${err.message}. Showing local data.`);
@@ -129,38 +122,94 @@ const App: React.FC = () => {
     } finally {
       setIsSyncing(false);
     }
-  }, [isOnline, isSyncing]);
-
+  }, []);
 
   useEffect(() => {
-    if (USE_MOCK_DATA) {
-      setNotes(MOCK_NOTES);
-      return;
+    if (!isSupabaseConfigured) {
+        setIsAuthLoading(false);
+        return;
     }
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        syncAndFetchInitialNotes(session);
-      } else {
-        db.getNotesFromDB().then(setNotes);
-      }
+    // onAuthStateChange is called immediately with the current session,
+    // making an initial getSession() call redundant and avoiding potential race conditions.
+    setIsAuthLoading(true);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        setSession(session);
+        if (session) {
+            await syncAndFetchInitialNotes(session);
+        } else {
+            // Clear all user-specific data on sign out
+            await db.clearLocalData();
+            setNotes([]);
+            setActiveFilter(null);
+            setSearchQuery('');
+            setSortOption('created_at_desc');
+            setViewMode('active');
+            setAiSearchResult(null);
+            setRecentlyArchived(null);
+            setIsSyncing(false); // Ensure syncing is off when logged out
+        }
+        // Auth check is complete, we can now show the UI
+        setIsAuthLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) {
-        syncAndFetchInitialNotes(session);
+    return () => {
+        subscription.unsubscribe();
+    };
+  }, [syncAndFetchInitialNotes]);
+
+
+  const loadMoreNotes = useCallback(async () => {
+      if (isLoadingMore || !hasMoreOnlineNotes || !isOnline || !session) return;
+
+      setIsLoadingMore(true);
+      const nextPage = page + 1;
+      const from = page * NOTES_PER_PAGE;
+      const to = from + NOTES_PER_PAGE - 1;
+
+      try {
+          const { data, error } = await supabase
+              .from('notes')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .order('created_at', { ascending: false })
+              .range(from, to);
+
+          if (error) throw error;
+
+          if (data) {
+              await db.addNotesToDB(data);
+              setNotes(prev => [...prev, ...data]);
+              setPage(nextPage);
+              setHasMoreOnlineNotes(data.length === NOTES_PER_PAGE);
+          }
+      } catch (err: any) {
+          setError(`Could not load more notes: ${err.message}`);
+      } finally {
+          setIsLoadingMore(false);
       }
-    });
-    return () => subscription.unsubscribe();
-  }, [USE_MOCK_DATA, syncAndFetchInitialNotes]);
+  }, [isLoadingMore, hasMoreOnlineNotes, isOnline, session, page]);
+
+  const observer = useRef<IntersectionObserver>();
+  const lastNoteElementRef = useCallback(node => {
+      if (isLoadingMore) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver(entries => {
+          if (entries[0].isIntersecting && hasMoreOnlineNotes && isOnline) {
+              loadMoreNotes();
+          }
+      });
+      if (node) observer.current.observe(node);
+  }, [isLoadingMore, hasMoreOnlineNotes, isOnline, loadMoreNotes]);
 
   useEffect(() => {
     const updateOnlineStatus = () => {
       const online = navigator.onLine;
       setIsOnline(online);
       if (online && session) {
-        setTimeout(() => syncAndFetchInitialNotes(session), 2000); // Sync after a delay when coming online
+        // FIX: The error "Expected 1 arguments, but got 0" was likely caused by
+        // an incorrect call to syncAndFetchInitialNotes. The function requires the
+        // session object to be passed as an argument.
+        syncAndFetchInitialNotes(session);
       }
     };
     window.addEventListener('online', updateOnlineStatus);
@@ -202,7 +251,7 @@ const App: React.FC = () => {
       }
     };
 
-    const intervalId = setInterval(checkReminders, 60000); // Check every minute
+    const intervalId = setInterval(checkReminders, 60000);
     return () => clearInterval(intervalId);
   }, [location, notes, sentNotifications]);
 
@@ -214,12 +263,11 @@ const App: React.FC = () => {
     setShowNoteForm(false);
     setEditingNote(null);
     
-    if (USE_MOCK_DATA) return;
-
     await db.saveNoteToDB(note);
     if (isOnline && session) {
       await db.queueUpdate({ type: 'SAVE', payload: note });
-      syncAndFetchInitialNotes(session);
+      // FIX: Awaited the sync function to prevent race conditions.
+      await syncAndFetchInitialNotes(session);
     } else {
       await db.queueUpdate({ type: 'SAVE', payload: note });
     }
@@ -231,7 +279,7 @@ const App: React.FC = () => {
         await navigator.share({
           title: note.title,
           text: `Check out my note: "${note.title}"\n\n${note.content}`,
-          url: window.location.href, // You could create a specific URL for the note if you had a backend for it
+          url: window.location.href,
         });
       } catch (error) {
         console.error('Error sharing note:', error);
@@ -247,12 +295,11 @@ const App: React.FC = () => {
     setRecentlyArchived(note);
     setNotes(notes.map(n => n.id === note.id ? updatedNote : n));
     
-    if (USE_MOCK_DATA) return;
-
     await db.saveNoteToDB(updatedNote);
     if (isOnline && session) {
       await db.queueUpdate({ type: 'SAVE', payload: updatedNote });
-      syncAndFetchInitialNotes(session);
+      // FIX: Awaited the sync function to prevent race conditions.
+      await syncAndFetchInitialNotes(session);
     } else {
       await db.queueUpdate({ type: 'SAVE', payload: updatedNote });
     }
@@ -262,12 +309,11 @@ const App: React.FC = () => {
     const updatedNote = { ...note, isArchived: false };
     setNotes(notes.map(n => n.id === note.id ? updatedNote : n));
     
-    if (USE_MOCK_DATA) return;
-    
     await db.saveNoteToDB(updatedNote);
     if (isOnline && session) {
         await db.queueUpdate({ type: 'SAVE', payload: updatedNote });
-        syncAndFetchInitialNotes(session);
+        // FIX: Awaited the sync function to prevent race conditions.
+        await syncAndFetchInitialNotes(session);
     } else {
         await db.queueUpdate({ type: 'SAVE', payload: updatedNote });
     }
@@ -277,12 +323,12 @@ const App: React.FC = () => {
     if (!window.confirm('Are you sure you want to permanently delete this note? This action cannot be undone.')) return;
     
     setNotes(notes.filter(n => n.id !== id));
-    if (USE_MOCK_DATA) return;
     
     await db.deleteNoteFromDB(id);
     if(isOnline && session) {
       await db.queueUpdate({ type: 'DELETE', payload: { id } });
-      syncAndFetchInitialNotes(session);
+      // FIX: Awaited the sync function to prevent race conditions.
+      await syncAndFetchInitialNotes(session);
     } else {
       await db.queueUpdate({ type: 'DELETE', payload: { id } });
     }
@@ -294,16 +340,12 @@ const App: React.FC = () => {
     const originalNote = { ...recentlyArchived, isArchived: false };
     setNotes(notes.map(n => n.id === originalNote.id ? originalNote : n));
     
-    if (USE_MOCK_DATA) {
-        setRecentlyArchived(null);
-        return;
-    }
-
     await db.saveNoteToDB(originalNote);
     
     if (isOnline && session) {
         await db.queueUpdate({ type: 'SAVE', payload: originalNote });
-        syncAndFetchInitialNotes(session);
+        // FIX: Awaited the sync function to prevent race conditions.
+        await syncAndFetchInitialNotes(session);
     } else {
         await db.queueUpdate({ type: 'SAVE', payload: originalNote });
     }
@@ -323,6 +365,30 @@ const App: React.FC = () => {
       } finally {
           setIsAiSearching(false);
       }
+  };
+
+  const handleSignIn = async () => {
+    try {
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: window.location.origin,
+                queryParams: {
+                    prompt: 'select_account',
+                },
+            },
+        });
+        if (error) throw error;
+    } catch (error: any) {
+        setError(`Authentication failed: ${error.message}`);
+    }
+  };
+  
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+        setError(`Failed to sign out: ${error.message}`);
+    }
   };
 
   const handleMarkerClick = (noteId: string) => {
@@ -360,11 +426,107 @@ const App: React.FC = () => {
     return tempNotes;
   }, [notes, viewMode, activeFilter, searchQuery, sortOption, location]);
 
+  const renderContent = () => {
+    if (isSyncing && notes.length === 0) {
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: NOTES_PER_PAGE }).map((_, index) => <NoteCardSkeleton key={index} />)}
+            </div>
+        );
+    }
+
+    if (processedNotes.length === 0) {
+        return (
+            <EmptyState 
+                onAddNote={() => { setEditingNote(null); setShowNoteForm(true); }}
+                viewMode={viewMode}
+                isFiltered={!!activeFilter || searchQuery.trim() !== ''}
+            />
+        );
+    }
+    
+    return (
+      <>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {processedNotes.map((note) => (
+            <NoteCard
+              ref={nodeRef => {
+                  if (nodeRef) noteRefs.current.set(note.id, nodeRef);
+                  else noteRefs.current.delete(note.id);
+              }}
+              key={note.id}
+              note={note}
+              userLocation={location}
+              onArchive={() => handleArchiveNote(note)}
+              onUnarchive={() => handleUnarchiveNote(note)}
+              onDeletePermanently={() => handleDeleteNotePermanently(note.id)}
+              onEdit={(noteToEdit) => { setEditingNote(noteToEdit); setShowNoteForm(true); }}
+              onShare={() => handleShareNote(note)}
+              isArchivedView={viewMode === 'archived'}
+              isActive={note.id === activeNoteId}
+              onMouseEnter={() => setActiveNoteId(note.id)}
+              onMouseLeave={() => setActiveNoteId(null)}
+            />
+          ))}
+        </div>
+        <div ref={lastNoteElementRef} className="flex justify-center py-8">
+            {isLoadingMore && (
+                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                    <SpinnerIcon className="w-6 h-6 animate-spin"/>
+                    <span>Loading more notes...</span>
+                </div>
+            )}
+            {!hasMoreOnlineNotes && notes.length > 0 && !isSyncing && (
+                <p className="text-gray-500 dark:text-gray-400">You've reached the end.</p>
+            )}
+        </div>
+      </>
+    );
+  };
+
+  if (!isSupabaseConfigured) {
+    return (
+        <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900 justify-center items-center p-4">
+            <div className="text-center bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg max-w-2xl mx-auto">
+                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <h1 className="text-2xl font-bold text-red-500 dark:text-red-400 mt-4 mb-2">Configuration Error</h1>
+                <p className="text-gray-700 dark:text-gray-300 mb-4">
+                    The application is not configured to connect to the backend service. This is required for authentication and data storage.
+                </p>
+                <p className="text-gray-600 dark:text-gray-400">
+                    To fix this, please set the <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> environment variables with your Supabase project credentials.
+                </p>
+                <div className="mt-6 text-left bg-gray-100 dark:bg-gray-700 p-4 rounded-md font-mono text-sm text-gray-800 dark:text-gray-200">
+                    <p><span className="font-semibold text-indigo-500 dark:text-indigo-400">SUPABASE_URL</span>="https://your-project-id.supabase.co"</p>
+                    <p><span className="font-semibold text-indigo-500 dark:text-indigo-400">SUPABASE_ANON_KEY</span>="your-public-anon-key"</p>
+                </div>
+                 <p className="mt-4 text-xs text-gray-500 dark:text-gray-500">
+                    Note: This is a local development message. Environment variables are typically managed by your hosting provider in production.
+                </p>
+            </div>
+        </div>
+    );
+  }
+
+  if (isAuthLoading) {
+    return (
+        <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900 justify-center items-center">
+            <div className="flex items-center gap-3">
+                <SpinnerIcon className="w-10 h-10 text-indigo-500 animate-spin" />
+                <span className="text-xl text-gray-700 dark:text-gray-300">Connecting...</span>
+            </div>
+        </div>
+    );
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300">
       <Header 
         session={session} 
-        onSignOut={() => supabase.auth.signOut()} 
+        onSignIn={handleSignIn}
+        onSignOut={handleSignOut} 
         isOnline={isOnline} 
         isSyncing={isSyncing}
         searchQuery={searchQuery}
@@ -435,29 +597,14 @@ const App: React.FC = () => {
                 <ArrowsUpDownIcon className="w-5 h-5 text-gray-500 dark:text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none"/>
             </div>
         </div>
+        
+        {session ? renderContent() : (
+            <div className="text-center py-20">
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Welcome to GeoNotes AI</h2>
+              <p className="mt-2 text-gray-600 dark:text-gray-400">Please sign in to manage your notes.</p>
+            </div>
+        )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {processedNotes.map((note) => (
-            <NoteCard
-              ref={nodeRef => {
-                  if (nodeRef) noteRefs.current.set(note.id, nodeRef);
-                  else noteRefs.current.delete(note.id);
-              }}
-              key={note.id}
-              note={note}
-              userLocation={location}
-              onArchive={() => handleArchiveNote(note)}
-              onUnarchive={() => handleUnarchiveNote(note)}
-              onDeletePermanently={() => handleDeleteNotePermanently(note.id)}
-              onEdit={(noteToEdit) => { setEditingNote(noteToEdit); setShowNoteForm(true); }}
-              onShare={() => handleShareNote(note)}
-              isArchivedView={viewMode === 'archived'}
-              isActive={note.id === activeNoteId}
-              onMouseEnter={() => setActiveNoteId(note.id)}
-              onMouseLeave={() => setActiveNoteId(null)}
-            />
-          ))}
-        </div>
       </main>
       <button
         onClick={() => { setEditingNote(null); setShowNoteForm(true); }}

@@ -1,4 +1,4 @@
-import { openDB } from 'https://cdn.jsdelivr.net/npm/idb@7/+esm';
+import { openDB } from 'idb';
 import { Note } from '../types';
 
 // The DBSchema and IDBPDatabase types are for TypeScript only and don't exist
@@ -41,6 +41,14 @@ export const saveAllNotesToDB = async (notes: Note[]) => {
     await tx.done;
 };
 
+export const addNotesToDB = async (notes: Note[]) => {
+    const db = await initDB();
+    const tx = db.transaction('notes', 'readwrite');
+    await Promise.all(notes.map(note => tx.objectStore('notes').put(note)));
+    await tx.done;
+};
+
+
 export const deleteNoteFromDB = async (id: string) => {
   const db = await initDB();
   return db.delete('notes', id);
@@ -66,4 +74,15 @@ export const clearQueuedUpdates = async () => {
 export const deleteNoteFromQueue = async (id: number) => {
     const db = await initDB();
     return db.delete('sync-queue', id);
+};
+
+export const clearLocalData = async () => {
+    const db = await initDB();
+    const tx = db.transaction(['notes', 'sync-queue'], 'readwrite');
+    await Promise.all([
+        tx.objectStore('notes').clear(),
+        tx.objectStore('sync-queue').clear()
+    ]);
+    await tx.done;
+    console.log('Local data cleared.');
 };

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'geonotes-ai-cache-v2';
+const CACHE_NAME = 'geonotes-ai-cache-v3';
 const APP_SHELL_URLS = [
     '/',
     '/index.html',
@@ -22,7 +22,9 @@ const APP_SHELL_URLS = [
     '/components/NoteCard.tsx',
     '/components/NoteForm.tsx',
     '/components/NotificationPermissionBanner.tsx',
-    '/components/UndoToast.tsx'
+    '/components/UndoToast.tsx',
+    '/components/NoteCardSkeleton.tsx',
+    '/components/EmptyState.tsx'
 ];
 
 

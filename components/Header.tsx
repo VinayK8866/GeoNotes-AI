@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { LocationPinIcon, SearchIcon, AiIcon, SpinnerIcon, SunIcon, MoonIcon, ComputerDesktopIcon } from './Icons';
+import { LocationPinIcon, SearchIcon, AiIcon, SpinnerIcon, SunIcon, MoonIcon, ComputerDesktopIcon, UserCircleIcon } from './Icons';
 import { Theme } from '../hooks/useTheme';
 
 interface HeaderProps {
     session: Session | null;
+    onSignIn: () => void;
     onSignOut: () => void;
     isOnline: boolean;
     isSyncing: boolean;
@@ -16,8 +17,27 @@ interface HeaderProps {
     setTheme: (theme: Theme) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ session, onSignOut, isOnline, isSyncing, searchQuery, onSearchChange, onAiSearch, isAiSearching, theme, setTheme }) => {
+export const Header: React.FC<HeaderProps> = ({ session, onSignIn, onSignOut, isOnline, isSyncing, searchQuery, onSearchChange, onAiSearch, isAiSearching, theme, setTheme }) => {
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const themeMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (themeMenuRef.current && !themeMenuRef.current.contains(event.target as Node)) {
+            setIsThemeMenuOpen(false);
+        }
+        if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+            setIsUserMenuOpen(false);
+        }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
 
   return (
     <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm sticky top-0 z-[1000] border-b border-gray-200 dark:border-gray-700">
@@ -59,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({ session, onSignOut, isOnline, is
           </div>
           <div className="flex-shrink-0">
             <div className="flex items-center gap-2">
-              <div className="relative">
+              <div ref={themeMenuRef} className="relative">
                 <button onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
                     {theme === 'light' && <SunIcon className="w-5 h-5" />}
                     {theme === 'dark' && <MoonIcon className="w-5 h-5" />}
@@ -73,6 +93,48 @@ export const Header: React.FC<HeaderProps> = ({ session, onSignOut, isOnline, is
                     </div>
                 )}
               </div>
+
+              <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
+
+              {session ? (
+                 <div ref={userMenuRef} className="relative">
+                    <button 
+                        onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} 
+                        className="p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800 focus:ring-indigo-500"
+                        aria-label="User menu"
+                        aria-expanded={isUserMenuOpen}
+                        aria-haspopup="true"
+                    >
+                        {session.user.user_metadata?.avatar_url ? (
+                            <img src={session.user.user_metadata.avatar_url} alt="User avatar" className="w-8 h-8 rounded-full" />
+                        ) : (
+                            <UserCircleIcon className="w-8 h-8 text-gray-500 dark:text-gray-400" />
+                        )}
+                    </button>
+                    {isUserMenuOpen && (
+                        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 py-1 z-20">
+                            <div className="px-4 py-2">
+                                <p className="text-sm text-gray-600 dark:text-gray-400">Signed in as</p>
+                                <p className="text-sm font-medium text-gray-900 dark:text-white truncate" title={session.user.email}>{session.user.email}</p>
+                            </div>
+                            <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
+                            <button 
+                                onClick={() => { onSignOut(); setIsUserMenuOpen(false); }} 
+                                className="w-full text-left block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            >
+                                Sign Out
+                            </button>
+                        </div>
+                    )}
+                 </div>
+              ) : (
+                <button 
+                    onClick={onSignIn} 
+                    className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors"
+                >
+                    Sign In
+                </button>
+              )}
             </div>
           </div>
         </div>
