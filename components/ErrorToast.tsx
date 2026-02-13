@@ -16,7 +16,7 @@ export const ErrorToast: React.FC<ErrorToastProps> = ({ message, onDismiss }) =>
   }, [onDismiss]);
 
   return (
-    <div className="fixed top-20 right-5 bg-red-600 text-white py-3 px-5 rounded-lg shadow-lg flex items-center justify-between z-[2000] border border-red-800 animate-fade-in-down">
+    <div className="fixed top-5 right-5 bg-red-600 text-white py-3 px-5 rounded-lg shadow-lg flex items-center justify-between z-30 border border-red-800 animate-fade-in-down">
       <style>{`
         @keyframes fade-in-down {
           0% {
@@ -33,8 +33,8 @@ export const ErrorToast: React.FC<ErrorToastProps> = ({ message, onDismiss }) =>
         }
       `}</style>
       <p className="mr-4">{message}</p>
-      <button
-        onClick={onDismiss}
+      <button 
+        onClick={onDismiss} 
         className="font-bold text-red-100 hover:text-white"
       >
         &times;

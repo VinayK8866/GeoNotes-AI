@@ -1,8 +1,12 @@
 
+
+
+
+
+
 import React, { useState, useEffect, useCallback, lazy, Suspense, useRef, useMemo } from 'react';
-import { ErrorBoundary } from './components/ErrorBoundary';
 import { Session } from '@supabase/supabase-js';
-import { Note, Category, SortOption, LocationAccuracy } from './types';
+import { Note, Category, SortOption } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useTheme } from './hooks/useTheme';
 import { getDistance } from './utils/geolocation';
@@ -15,98 +19,20 @@ import { CategoryFilter } from './components/CategoryFilter';
 import { UndoToast } from './components/UndoToast';
 import { ErrorToast } from './components/ErrorToast';
 import { NotificationPermissionBanner } from './components/NotificationPermissionBanner';
-import { PlusIcon, SpinnerIcon, CloseIcon, AiIcon, ArrowsUpDownIcon, LocationPinIcon, CloudIcon, WifiSlashIcon, GoogleIcon, ComputerDesktopIcon } from './components/Icons';
+import { PlusIcon, SpinnerIcon, CloseIcon, AiIcon, ArrowsUpDownIcon } from './components/Icons';
 import { searchNotesWithAi } from './services/geminiService';
 import { NoteCardSkeleton } from './components/NoteCardSkeleton';
 import { EmptyState } from './components/EmptyState';
-import { SettingsModal } from './components/SettingsModal';
 
 const MapView = lazy(() => import('./components/MapView'));
 const NoteForm = lazy(() => import('./components/NoteForm'));
 
 const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'cat-1', name: 'Work', color: 'bg-blue-500' },
-  { id: 'cat-2', name: 'Personal', color: 'bg-green-500' },
-  { id: 'cat-3', name: 'Shopping', color: 'bg-yellow-500' },
-  { id: 'cat-4', name: 'Ideas', color: 'bg-purple-500' },
+    { id: 'cat-1', name: 'Work', color: 'bg-blue-500' },
+    { id: 'cat-2', name: 'Personal', color: 'bg-green-500' },
+    { id: 'cat-3', name: 'Shopping', color: 'bg-yellow-500' },
+    { id: 'cat-4', name: 'Ideas', color: 'bg-purple-500' },
 ];
-
-interface AuthProps {
-  onSignIn: () => void;
-  isConfigured: boolean;
-}
-
-const Auth: React.FC<AuthProps> = ({ onSignIn, isConfigured }) => {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 px-4 sm:px-6 lg:px-8 text-center">
-      <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800/50 p-8 sm:p-10 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
-        <div>
-          <LocationPinIcon className="mx-auto h-12 w-auto text-indigo-500 dark:text-indigo-400" />
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900 dark:text-white">
-            Welcome to GeoNotes AI
-          </h2>
-          <p className="mt-2 text-md text-gray-600 dark:text-gray-400">
-            Your world, your notes. Synced everywhere.
-          </p>
-        </div>
-
-        <div className="mt-8 space-y-6 text-left">
-          <ul className="space-y-4 text-gray-700 dark:text-gray-300">
-            <li className="flex items-start">
-              <div className="flex-shrink-0">
-                <CloudIcon className="w-6 h-6 text-green-500 dark:text-green-400" />
-              </div>
-              <div className="ml-3">
-                <h3 className="text-md font-medium text-gray-900 dark:text-white">Cloud Sync & Backup</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Securely back up and sync your notes across all your devices.</p>
-              </div>
-            </li>
-            <li className="flex items-start">
-              <div className="flex-shrink-0">
-                <WifiSlashIcon className="w-6 h-6 text-yellow-500 dark:text-yellow-400" />
-              </div>
-              <div className="ml-3">
-                <h3 className="text-md font-medium text-gray-900 dark:text-white">Full Offline Access</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Your notes are always available, even without an internet connection.</p>
-              </div>
-            </li>
-            <li className="flex items-start">
-              <div className="flex-shrink-0">
-                <AiIcon className="w-6 h-6 text-purple-500 dark:text-purple-400" />
-              </div>
-              <div className="ml-3">
-                <h3 className="text-md font-medium text-gray-900 dark:text-white">AI-Powered Features</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Leverage AI to organize, brainstorm, and find what you need, faster.</p>
-              </div>
-            </li>
-          </ul>
-        </div>
-
-        <div className="mt-6">
-          <button
-            onClick={onSignIn}
-            type="button"
-            className="group relative w-full flex justify-center items-center gap-3 py-3 px-4 border border-transparent text-sm font-semibold rounded-md text-gray-700 bg-white dark:text-gray-200 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors shadow-md border-gray-300 dark:border-gray-600"
-          >
-            <GoogleIcon className="w-6 h-6" />
-            Sign in with Google
-          </button>
-          {!isConfigured && (
-            <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-md">
-              <p className="text-xs text-amber-700 dark:text-amber-400 text-center">
-                <strong>Local Mode:</strong> Backend services (Supabase) are not configured. Sign-in is disabled, but you can still create and save notes locally in your browser.
-              </p>
-            </div>
-          )}
-        </div>
-
-        <p className="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">
-          By continuing, you agree to our <a href="#" className="font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500">Terms of Service</a> and <a href="#" className="font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500">Privacy Policy</a>.
-        </p>
-      </div>
-    </div>
-  );
-};
 
 const App: React.FC = () => {
   const { theme, setTheme, effectiveTheme } = useTheme();
@@ -115,388 +41,579 @@ const App: React.FC = () => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [recentlyArchived, setRecentlyArchived] = useState<Note | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMoreOnlineNotes, setHasMoreOnlineNotes] = useState(true);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+  const [sentNotifications, setSentNotifications] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('sentNotifications');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+  
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortOption, setSortOption] = useState<SortOption>('created_at_desc');
   const [viewMode, setViewMode] = useState<'active' | 'archived'>('active');
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [isAiSearching, setIsAiSearching] = useState(false);
   const [aiSearchResult, setAiSearchResult] = useState<string | null>(null);
 
-  const [locationAccuracy, setLocationAccuracy] = useState<LocationAccuracy>(() => {
-    return (localStorage.getItem('locationAccuracy') as LocationAccuracy) || 'high';
-  });
-  const [showSettings, setShowSettings] = useState(false);
+  const { location, error: locationError, requestLocation } = useGeolocation();
+  const noteRefs = useRef(new Map<string, HTMLDivElement>());
 
-  const { location, error: locationError, requestLocation } = useGeolocation(locationAccuracy);
-  useEffect(() => {
-    if (locationError) console.error("App location error:", locationError);
-    if (location) console.log("App location update:", location);
-  }, [location, locationError]);
-
-  const handleAccuracyChange = (newAccuracy: LocationAccuracy) => {
-    setLocationAccuracy(newAccuracy);
-    localStorage.setItem('locationAccuracy', newAccuracy);
-  };
-
-  /* Sync & Pagination State */
-  const [page, setPage] = useState(1);
-  const [hasMoreNotes, setHasMoreNotes] = useState(true);
-
-  const syncAndFetchInitialNotes = useCallback(async () => {
-    // 1. Initial Load from Local DB
-    const localNotes = await db.getNotesFromDB(1, NOTES_PER_PAGE);
-    setNotes(localNotes);
-    if (localNotes.length < NOTES_PER_PAGE) setHasMoreNotes(false);
-
-    if (!supabase || !isSupabaseConfigured) {
-      setIsSyncing(false);
-      return;
-    }
-
+  const syncAndFetchInitialNotes = useCallback(async (currentSession: Session) => {
     setIsSyncing(true);
     if (!navigator.onLine) {
+      setError("You are offline. Showing locally saved data.");
+      const localNotes = await db.getNotesFromDB();
+      setNotes(localNotes);
       setIsSyncing(false);
       return;
-    }
-
+    };
+    setError(null);
+    
     try {
-      // 2. Push Local Changes
       const queuedUpdates = await db.getQueuedUpdates();
       if (queuedUpdates.length > 0) {
+        console.log(`Syncing ${queuedUpdates.length} offline updates...`);
         for (const update of queuedUpdates) {
-          // Note: In a real app, you'd handle conflict resolution here.
           if (update.type === 'SAVE') {
-            await supabase.from('notes').upsert(update.payload);
+            const { error: saveError } = await supabase
+              .from('notes')
+              .upsert({ ...update.payload, user_id: currentSession.user.id });
+            if (saveError) throw saveError;
           } else if (update.type === 'DELETE') {
-            await supabase.from('notes').delete().eq('id', update.payload.id);
+            const { error: deleteError } = await supabase
+              .from('notes')
+              .delete()
+              .match({ id: update.payload.id, user_id: currentSession.user.id });
+            if (deleteError) throw deleteError;
           }
+          await db.deleteNoteFromQueue(update.id);
         }
-        await db.clearQueuedUpdates();
+        console.log('Offline sync complete.');
       }
 
-      // 3. Pull Remote Changes (Differential Sync)
-      const lastSyncTime = db.getLastSyncTime();
-      let query = supabase.from('notes').select('*');
+      const from = 0;
+      const to = NOTES_PER_PAGE - 1;
+      const { data: onlineNotes, error: fetchError } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('user_id', currentSession.user.id)
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
-      if (lastSyncTime) {
-        query = query.gt('updated_at', lastSyncTime);
-      }
-
-      const { data, error: fetchError } = await query;
       if (fetchError) throw fetchError;
-
-      if (data && data.length > 0) {
-        await db.addNotesToDB(data);
+      
+      if (onlineNotes) {
+        await db.saveAllNotesToDB(onlineNotes);
+        setNotes(onlineNotes);
+        setPage(1);
+        setHasMoreOnlineNotes(onlineNotes.length === NOTES_PER_PAGE);
       }
-
-      db.setLastSyncTime(new Date().toISOString());
-
-      // 4. Update UI with latest data from DB (refresh current view)
-      // We accept that this might shift things around if new notes appeared.
-      const freshNotes = await db.getNotesFromDB(1, NOTES_PER_PAGE * page);
-      setNotes(freshNotes);
-
     } catch (err: any) {
-      console.error("Sync error:", err);
+      setError(`Could not sync with server. Reason: ${err.message}. Showing local data.`);
+      const localNotes = await db.getNotesFromDB();
+      setNotes(localNotes);
     } finally {
       setIsSyncing(false);
     }
-  }, [page]);
-
-  const loadMoreNotes = async () => {
-    const nextPage = page + 1;
-    const moreNotes = await db.getNotesFromDB(nextPage, NOTES_PER_PAGE);
-    if (moreNotes.length === 0) {
-      setHasMoreNotes(false);
-    } else {
-      setNotes(prev => [...prev, ...moreNotes]);
-      setPage(nextPage);
-    }
-  };
-
-  useEffect(() => {
-    if (supabase) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setSession(session);
-        setIsAuthLoading(false);
-        syncAndFetchInitialNotes();
-      });
-
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        setSession(session);
-        if (session) syncAndFetchInitialNotes();
-      });
-
-      return () => subscription.unsubscribe();
-    } else {
-      setIsAuthLoading(false);
-      syncAndFetchInitialNotes();
-    }
-  }, [syncAndFetchInitialNotes]);
-
-  useEffect(() => {
-    const handleStatusChange = () => setIsOnline(navigator.onLine);
-    window.addEventListener('online', handleStatusChange);
-    window.addEventListener('offline', handleStatusChange);
-    return () => {
-      window.removeEventListener('online', handleStatusChange);
-      window.removeEventListener('offline', handleStatusChange);
-    };
   }, []);
 
-  const handleSignIn = async () => {
-    if (!supabase || !isSupabaseConfigured) {
-      setError("Sign-in requires a valid Supabase configuration (SUPABASE_URL and SUPABASE_ANON_KEY environment variables). The app will continue in Local-Only Mode.");
-      return;
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+        setIsAuthLoading(false);
+        return;
     }
-
-    try {
-      const { error: signInError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin
+    // onAuthStateChange is called immediately with the current session,
+    // making an initial getSession() call redundant and avoiding potential race conditions.
+    setIsAuthLoading(true);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        setSession(session);
+        if (session) {
+            await syncAndFetchInitialNotes(session);
+        } else {
+            // Clear all user-specific data on sign out
+            await db.clearLocalData();
+            setNotes([]);
+            setActiveFilter(null);
+            setSearchQuery('');
+            setSortOption('created_at_desc');
+            setViewMode('active');
+            setAiSearchResult(null);
+            setRecentlyArchived(null);
+            setIsSyncing(false); // Ensure syncing is off when logged out
         }
+        // Auth check is complete, we can now show the UI
+        setIsAuthLoading(false);
+    });
+
+    return () => {
+        subscription.unsubscribe();
+    };
+  }, [syncAndFetchInitialNotes]);
+
+
+  const loadMoreNotes = useCallback(async () => {
+      if (isLoadingMore || !hasMoreOnlineNotes || !isOnline || !session) return;
+
+      setIsLoadingMore(true);
+      const nextPage = page + 1;
+      const from = page * NOTES_PER_PAGE;
+      const to = from + NOTES_PER_PAGE - 1;
+
+      try {
+          const { data, error } = await supabase
+              .from('notes')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .order('created_at', { ascending: false })
+              .range(from, to);
+
+          if (error) throw error;
+
+          if (data) {
+              await db.addNotesToDB(data);
+              setNotes(prev => [...prev, ...data]);
+              setPage(nextPage);
+              setHasMoreOnlineNotes(data.length === NOTES_PER_PAGE);
+          }
+      } catch (err: any) {
+          setError(`Could not load more notes: ${err.message}`);
+      } finally {
+          setIsLoadingMore(false);
+      }
+  }, [isLoadingMore, hasMoreOnlineNotes, isOnline, session, page]);
+
+  const observer = useRef<IntersectionObserver>();
+  const lastNoteElementRef = useCallback(node => {
+      if (isLoadingMore) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver(entries => {
+          if (entries[0].isIntersecting && hasMoreOnlineNotes && isOnline) {
+              loadMoreNotes();
+          }
       });
-      if (signInError) throw signInError;
-    } catch (err: any) {
-      setError(err.message || "Failed to initiate sign-in.");
-    }
-  };
+      if (node) observer.current.observe(node);
+  }, [isLoadingMore, hasMoreOnlineNotes, isOnline, loadMoreNotes]);
 
-  const handleSignOut = async () => {
-    if (!supabase) return;
-    try {
-      await supabase.auth.signOut();
-      setSession(null);
-      // We might want to clear local DB here or keep it for offline. 
-      // For now, keep it for seamless offline-first experience.
-    } catch (err: any) {
-      setError(err.message || "Failed to sign out.");
-    }
-  };
+  useEffect(() => {
+    const updateOnlineStatus = () => {
+      const online = navigator.onLine;
+      setIsOnline(online);
+      if (online && session) {
+        // FIX: The error "Expected 1 arguments, but got 0" was likely caused by
+        // an incorrect call to syncAndFetchInitialNotes. The function requires the
+        // session object to be passed as an argument.
+        syncAndFetchInitialNotes(session);
+      }
+    };
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    return () => {
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
+    };
+  }, [session, syncAndFetchInitialNotes]);
 
-  const handleSaveNote = async (note: Note) => {
-    const updatedNotes = notes.some(n => n.id === note.id)
-      ? notes.map(n => n.id === note.id ? note : n)
-      : [note, ...notes];
+  useEffect(() => {
+    if (!location || !('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
 
-    setNotes(updatedNotes);
-    await db.saveNoteToDB(note);
+    const checkReminders = () => {
+      const notesToCheck = notes.filter(n => n.location && !n.isArchived);
+      let updatedSentNotifications = false;
+      const newSentSet = new Set(sentNotifications);
+
+      for (const note of notesToCheck) {
+        if (!note.location) continue;
+        const distance = getDistance(location, note.location.coordinates);
+        if (distance <= REMINDER_RADIUS_METERS && !sentNotifications.has(note.id)) {
+          navigator.serviceWorker.controller.postMessage({
+            type: 'SHOW_NOTIFICATION',
+            payload: {
+              title: `Reminder: ${note.title}`,
+              body: `You're near ${note.location.name}. Don't forget your task!`,
+              tag: note.id,
+            },
+          });
+          newSentSet.add(note.id);
+          updatedSentNotifications = true;
+        }
+      }
+
+      if (updatedSentNotifications) {
+        setSentNotifications(newSentSet);
+        localStorage.setItem('sentNotifications', JSON.stringify(Array.from(newSentSet)));
+      }
+    };
+
+    const intervalId = setInterval(checkReminders, 60000);
+    return () => clearInterval(intervalId);
+  }, [location, notes, sentNotifications]);
+
+
+   const handleSaveNote = async (note: Note) => {
+    const isNew = !notes.some(n => n.id === note.id);
+    const optimisticNotes = isNew ? [note, ...notes] : notes.map(n => (n.id === note.id ? note : n));
+    setNotes(optimisticNotes);
     setShowNoteForm(false);
     setEditingNote(null);
-
-    if (navigator.onLine && supabase && isSupabaseConfigured && session) {
-      await supabase.from('notes').upsert({ ...note, user_id: session.user.id });
+    
+    await db.saveNoteToDB(note);
+    if (isOnline && session) {
+      await db.queueUpdate({ type: 'SAVE', payload: note });
+      // FIX: Awaited the sync function to prevent race conditions.
+      await syncAndFetchInitialNotes(session);
     } else {
       await db.queueUpdate({ type: 'SAVE', payload: note });
     }
   };
 
-  const handleArchiveNote = async (note: Note) => {
-    const updatedNote = { ...note, isArchived: !note.isArchived };
-    handleSaveNote(updatedNote);
-    if (!note.isArchived) setRecentlyArchived(note);
+  const handleShareNote = async (note: Note) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: note.title,
+          text: `Check out my note: "${note.title}"\n\n${note.content}`,
+          url: window.location.href,
+        });
+      } catch (error) {
+        console.error('Error sharing note:', error);
+        setError('Could not share note.');
+      }
+    } else {
+      setError('Web Share API is not available on your browser.');
+    }
   };
 
-  const handleDeletePermanently = async (id: string) => {
+  const handleArchiveNote = async (note: Note) => {
+    const updatedNote = { ...note, isArchived: true };
+    setRecentlyArchived(note);
+    setNotes(notes.map(n => n.id === note.id ? updatedNote : n));
+    
+    await db.saveNoteToDB(updatedNote);
+    if (isOnline && session) {
+      await db.queueUpdate({ type: 'SAVE', payload: updatedNote });
+      // FIX: Awaited the sync function to prevent race conditions.
+      await syncAndFetchInitialNotes(session);
+    } else {
+      await db.queueUpdate({ type: 'SAVE', payload: updatedNote });
+    }
+  };
+  
+  const handleUnarchiveNote = async (note: Note) => {
+    const updatedNote = { ...note, isArchived: false };
+    setNotes(notes.map(n => n.id === note.id ? updatedNote : n));
+    
+    await db.saveNoteToDB(updatedNote);
+    if (isOnline && session) {
+        await db.queueUpdate({ type: 'SAVE', payload: updatedNote });
+        // FIX: Awaited the sync function to prevent race conditions.
+        await syncAndFetchInitialNotes(session);
+    } else {
+        await db.queueUpdate({ type: 'SAVE', payload: updatedNote });
+    }
+  };
+  
+  const handleDeleteNotePermanently = async (id: string) => {
+    if (!window.confirm('Are you sure you want to permanently delete this note? This action cannot be undone.')) return;
+    
     setNotes(notes.filter(n => n.id !== id));
+    
     await db.deleteNoteFromDB(id);
-    if (navigator.onLine && supabase && isSupabaseConfigured && session) {
-      await supabase.from('notes').delete().eq('id', id);
+    if(isOnline && session) {
+      await db.queueUpdate({ type: 'DELETE', payload: { id } });
+      // FIX: Awaited the sync function to prevent race conditions.
+      await syncAndFetchInitialNotes(session);
     } else {
       await db.queueUpdate({ type: 'DELETE', payload: { id } });
     }
   };
 
+  const handleUndoArchive = async () => {
+    if (!recentlyArchived) return;
+    
+    const originalNote = { ...recentlyArchived, isArchived: false };
+    setNotes(notes.map(n => n.id === originalNote.id ? originalNote : n));
+    
+    await db.saveNoteToDB(originalNote);
+    
+    if (isOnline && session) {
+        await db.queueUpdate({ type: 'SAVE', payload: originalNote });
+        // FIX: Awaited the sync function to prevent race conditions.
+        await syncAndFetchInitialNotes(session);
+    } else {
+        await db.queueUpdate({ type: 'SAVE', payload: originalNote });
+    }
+    setRecentlyArchived(null);
+  };
+  
   const handleAiSearch = async () => {
-    if (!searchQuery.trim()) return;
-    setIsAiSearching(true);
-    setAiSearchResult(null);
+      if (!searchQuery.trim()) return;
+      setIsAiSearching(true);
+      setAiSearchResult(null);
+      setError(null);
+      try {
+          const result = await searchNotesWithAi(searchQuery, notes);
+          setAiSearchResult(result);
+      } catch (err: any) {
+          setError(err.message || 'Failed to search with AI.');
+      } finally {
+          setIsAiSearching(false);
+      }
+  };
+
+  const handleSignIn = async () => {
     try {
-      const result = await searchNotesWithAi(searchQuery, notes);
-      setAiSearchResult(result);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsAiSearching(false);
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: window.location.origin,
+                queryParams: {
+                    prompt: 'select_account',
+                },
+            },
+        });
+        if (error) throw error;
+    } catch (error: any) {
+        setError(`Authentication failed: ${error.message}`);
+    }
+  };
+  
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+        setError(`Failed to sign out: ${error.message}`);
     }
   };
 
-  const filteredNotes = useMemo(() => {
-    return notes.filter(note => {
-      const matchesFilter = activeFilter ? note.category?.id === activeFilter : true;
-      const matchesView = note.isArchived === (viewMode === 'archived');
-      const matchesSearch = searchQuery
-        ? note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        note.content.toLowerCase().includes(searchQuery.toLowerCase())
-        : true;
-      return matchesFilter && matchesView && matchesSearch;
-    });
-  }, [notes, activeFilter, viewMode, searchQuery]);
+  const handleMarkerClick = (noteId: string) => {
+    setActiveNoteId(noteId);
+    const node = noteRefs.current.get(noteId);
+    if (node) {
+        node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
 
-  if (isAuthLoading) {
+  const processedNotes = useMemo(() => {
+    let tempNotes = [...notes];
+    tempNotes = tempNotes.filter(note => viewMode === 'archived' ? note.isArchived : !note.isArchived);
+    if (activeFilter) tempNotes = tempNotes.filter(n => n.category?.id === activeFilter);
+    if (searchQuery.trim() !== '') {
+      const lowercasedQuery = searchQuery.toLowerCase();
+      tempNotes = tempNotes.filter(n =>
+        n.title.toLowerCase().includes(lowercasedQuery) ||
+        n.content.toLowerCase().includes(lowercasedQuery)
+      );
+    }
+    tempNotes.sort((a, b) => {
+      switch (sortOption) {
+        case 'created_at_asc': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'title_asc': return a.title.localeCompare(b.title);
+        case 'title_desc': return b.title.localeCompare(a.title);
+        case 'distance_asc':
+            if (!location) return 0;
+            const distA = a.location ? getDistance(location, a.location.coordinates) : Infinity;
+            const distB = b.location ? getDistance(location, b.location.coordinates) : Infinity;
+            return distA - distB;
+        default: return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+    });
+    return tempNotes;
+  }, [notes, viewMode, activeFilter, searchQuery, sortOption, location]);
+
+  const renderContent = () => {
+    if (isSyncing && notes.length === 0) {
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: NOTES_PER_PAGE }).map((_, index) => <NoteCardSkeleton key={index} />)}
+            </div>
+        );
+    }
+
+    if (processedNotes.length === 0) {
+        return (
+            <EmptyState 
+                onAddNote={() => { setEditingNote(null); setShowNoteForm(true); }}
+                viewMode={viewMode}
+                isFiltered={!!activeFilter || searchQuery.trim() !== ''}
+            />
+        );
+    }
+    
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <SpinnerIcon className="w-12 h-12 text-indigo-500 animate-spin" />
-      </div>
+      <>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {processedNotes.map((note) => (
+            <NoteCard
+              ref={nodeRef => {
+                  if (nodeRef) noteRefs.current.set(note.id, nodeRef);
+                  else noteRefs.current.delete(note.id);
+              }}
+              key={note.id}
+              note={note}
+              userLocation={location}
+              onArchive={() => handleArchiveNote(note)}
+              onUnarchive={() => handleUnarchiveNote(note)}
+              onDeletePermanently={() => handleDeleteNotePermanently(note.id)}
+              onEdit={(noteToEdit) => { setEditingNote(noteToEdit); setShowNoteForm(true); }}
+              onShare={() => handleShareNote(note)}
+              isArchivedView={viewMode === 'archived'}
+              isActive={note.id === activeNoteId}
+              onMouseEnter={() => setActiveNoteId(note.id)}
+              onMouseLeave={() => setActiveNoteId(null)}
+            />
+          ))}
+        </div>
+        <div ref={lastNoteElementRef} className="flex justify-center py-8">
+            {isLoadingMore && (
+                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                    <SpinnerIcon className="w-6 h-6 animate-spin"/>
+                    <span>Loading more notes...</span>
+                </div>
+            )}
+            {!hasMoreOnlineNotes && notes.length > 0 && !isSyncing && (
+                <p className="text-gray-500 dark:text-gray-400">You've reached the end.</p>
+            )}
+        </div>
+      </>
+    );
+  };
+
+  if (!isSupabaseConfigured) {
+    return (
+        <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900 justify-center items-center p-4">
+            <div className="text-center bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg max-w-2xl mx-auto">
+                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <h1 className="text-2xl font-bold text-red-500 dark:text-red-400 mt-4 mb-2">Configuration Error</h1>
+                <p className="text-gray-700 dark:text-gray-300 mb-4">
+                    The application is not configured to connect to the backend service. This is required for authentication and data storage.
+                </p>
+                <p className="text-gray-600 dark:text-gray-400">
+                    To fix this, please set the <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> environment variables with your Supabase project credentials.
+                </p>
+                <div className="mt-6 text-left bg-gray-100 dark:bg-gray-700 p-4 rounded-md font-mono text-sm text-gray-800 dark:text-gray-200">
+                    <p><span className="font-semibold text-indigo-500 dark:text-indigo-400">SUPABASE_URL</span>="https://your-project-id.supabase.co"</p>
+                    <p><span className="font-semibold text-indigo-500 dark:text-indigo-400">SUPABASE_ANON_KEY</span>="your-public-anon-key"</p>
+                </div>
+                 <p className="mt-4 text-xs text-gray-500 dark:text-gray-500">
+                    Note: This is a local development message. Environment variables are typically managed by your hosting provider in production.
+                </p>
+            </div>
+        </div>
     );
   }
 
-  // Show Auth screen if not logged in AND we have a valid configuration to try.
-  // If no config, we skip to the main app in local mode.
-  if (!session && isSupabaseConfigured) {
+  if (isAuthLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <Auth onSignIn={handleSignIn} isConfigured={isSupabaseConfigured} />
-      </div>
+        <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900 justify-center items-center">
+            <div className="flex items-center gap-3">
+                <SpinnerIcon className="w-10 h-10 text-indigo-500 animate-spin" />
+                <span className="text-xl text-gray-700 dark:text-gray-300">Connecting...</span>
+            </div>
+        </div>
     );
   }
 
   return (
-    <ErrorBoundary>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 flex flex-col">
-        <Header
-          session={session}
-          onSignIn={handleSignIn}
-          onSignOut={handleSignOut}
-          isOnline={isOnline}
-          isSyncing={isSyncing}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          onAiSearch={handleAiSearch}
-          isAiSearching={isAiSearching}
-          theme={theme}
-          setTheme={setTheme}
-          onOpenSettings={() => setShowSettings(true)}
-        />
-
-        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
-          <div className="flex flex-col md:flex-row gap-6 mb-8">
-            <div className="flex-grow">
-              <div className="flex items-center justify-between mb-6">
-                <CategoryFilter
-                  categories={DEFAULT_CATEGORIES}
-                  activeFilter={activeFilter}
-                  onSelectFilter={setActiveFilter}
-                />
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setViewMode(viewMode === 'active' ? 'archived' : 'active')}
-                    className="text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-indigo-600 transition-colors"
-                  >
-                    {viewMode === 'active' ? 'View Archive' : 'View Active Notes'}
-                  </button>
-                </div>
-              </div>
-
-              <Suspense fallback={<div className="h-[60vh] bg-gray-200 dark:bg-gray-800 animate-pulse rounded-lg flex items-center justify-center text-gray-400">Loading Map...</div>}>
-                <ErrorBoundary>
-                  <MapView
-                    notes={filteredNotes}
-                    userLocation={location}
-                    activeNoteId={activeNoteId}
-                    onMarkerClick={setActiveNoteId}
-                    theme={effectiveTheme}
-                  />
-                </ErrorBoundary>
-              </Suspense>
-            </div>
-          </div>
-
-          {aiSearchResult && (
-            <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 p-6 rounded-lg mb-8 relative shadow-sm">
-              <button onClick={() => setAiSearchResult(null)} className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                <CloseIcon className="w-5 h-5" />
-              </button>
-              <h3 className="text-lg font-bold text-indigo-900 dark:text-indigo-200 mb-2 flex items-center gap-2">
-                <AiIcon className="w-5 h-5" /> AI Search Result
-              </h3>
-              <div className="prose dark:prose-invert max-w-none text-gray-800 dark:text-gray-200">
-                {aiSearchResult}
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredNotes.length > 0 ? (
-              filteredNotes.map(note => (
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  userLocation={location}
-                  isActive={note.id === activeNoteId}
-                  isArchivedView={viewMode === 'archived'}
-                  onEdit={(n) => { setEditingNote(n); setShowNoteForm(true); }}
-                  onArchive={handleArchiveNote}
-                  onUnarchive={handleArchiveNote}
-                  onDeletePermanently={handleDeletePermanently}
-                  onShare={(n) => navigator.share({ title: n.title, text: n.content })}
-                  onMouseEnter={() => setActiveNoteId(note.id)}
-                  onMouseLeave={() => setActiveNoteId(null)}
-                />
-              ))
-            ) : (
-              <div className="col-span-full">
-                <EmptyState
-                  onAddNote={() => setShowNoteForm(true)}
-                  viewMode={viewMode}
-                  isFiltered={!!activeFilter || !!searchQuery}
-                />
-              </div>
-            )}
-          </div>
-
-          {hasMoreNotes && !activeFilter && !searchQuery && !viewMode.includes('archived') && (
-            <div className="flex justify-center mt-8">
-              <button
-                onClick={loadMoreNotes}
-                className="px-6 py-3 bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 font-semibold rounded-full shadow-md border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
-                Load More Notes
-              </button>
-            </div>
-          )}
-        </main>
-
-        <button
-          onClick={() => { setEditingNote(null); setShowNoteForm(true); }}
-          className="fixed bottom-8 right-8 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-indigo-700 transition-transform hover:scale-110 z-50 focus:outline-none focus:ring-4 focus:ring-indigo-500/50"
-          aria-label="Add new note"
-        >
-          <PlusIcon className="w-8 h-8" />
-        </button>
-
+    <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white transition-colors duration-300">
+      <Header 
+        session={session} 
+        onSignIn={handleSignIn}
+        onSignOut={handleSignOut} 
+        isOnline={isOnline} 
+        isSyncing={isSyncing}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onAiSearch={handleAiSearch}
+        isAiSearching={isAiSearching}
+        theme={theme}
+        setTheme={setTheme}
+       />
+      {notificationPermission !== 'granted' && <NotificationPermissionBanner status={notificationPermission} onRequest={() => Notification.requestPermission().then(setNotificationPermission)} />}
+      
+      <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
+        {error && <ErrorToast message={error} onDismiss={() => setError(null)} />}
+        {recentlyArchived && <UndoToast message="Note archived." onUndo={handleUndoArchive} />}
         {showNoteForm && (
-          <Suspense fallback={null}>
-            <NoteForm
-              noteToEdit={editingNote}
-              onSave={handleSaveNote}
+          <Suspense fallback={<div>Loading form...</div>}>
+            <NoteForm 
+              noteToEdit={editingNote} 
+              onSave={handleSaveNote} 
               onCancel={() => { setShowNoteForm(false); setEditingNote(null); }}
-              categories={DEFAULT_CATEGORIES}
+              categories={DEFAULT_CATEGORIES} 
               userLocation={location}
-              onRequestLocation={requestLocation}
               onError={setError}
             />
           </Suspense>
         )}
-
-        {showSettings && (
-          <SettingsModal
-            isOpen={showSettings}
-            onClose={() => setShowSettings(false)}
-            accuracy={locationAccuracy}
-            onAccuracyChange={handleAccuracyChange}
-          />
+        
+        {aiSearchResult && (
+            <div className="fixed inset-0 bg-black/60 z-[1200] flex justify-center items-center p-4" onClick={() => setAiSearchResult(null)}>
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2"><AiIcon className="w-6 h-6 text-indigo-500 dark:text-indigo-400" /> AI Assistant's Answer</h3>
+                        <button onClick={() => setAiSearchResult(null)} className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"><CloseIcon className="w-6 h-6" /></button>
+                    </div>
+                    <div className="p-6 overflow-y-auto">
+                        <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{aiSearchResult}</p>
+                    </div>
+                </div>
+            </div>
         )}
 
-        {recentlyArchived && <UndoToast message="Note archived" onUndo={() => { handleArchiveNote(recentlyArchived); setRecentlyArchived(null); }} />}
-        {error && <ErrorToast message={error} onDismiss={() => setError(null)} />}
-      </div>
-    </ErrorBoundary>
+        <div className="mb-6">
+          <Suspense fallback={<div className="bg-gray-200 dark:bg-slate-700 rounded-lg h-[60vh] flex items-center justify-center text-gray-400">Loading Map...</div>}>
+            <MapView notes={processedNotes} userLocation={location} activeNoteId={activeNoteId} onMarkerClick={handleMarkerClick} theme={effectiveTheme} />
+          </Suspense>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 mb-6">
+            <div className="flex items-center gap-2">
+                <button onClick={() => setViewMode('active')} className={`px-4 py-2 text-sm font-semibold rounded-md ${viewMode === 'active' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>Active</button>
+                <button onClick={() => setViewMode('archived')} className={`px-4 py-2 text-sm font-semibold rounded-md ${viewMode === 'archived' ? 'bg-indigo-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>Archived</button>
+            </div>
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+            <CategoryFilter categories={DEFAULT_CATEGORIES} activeFilter={activeFilter} onSelectFilter={setActiveFilter} />
+            <div className="relative ml-auto">
+                <select 
+                    value={sortOption} 
+                    onChange={e => setSortOption(e.target.value as SortOption)}
+                    className="bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md py-2 pl-4 pr-8 appearance-none focus:ring-indigo-500 focus:border-indigo-500 border-transparent"
+                    aria-label="Sort notes"
+                >
+                    <option value="created_at_desc">Date: Newest</option>
+                    <option value="created_at_asc">Date: Oldest</option>
+                    <option value="title_asc">Title: A-Z</option>
+                    <option value="title_desc">Title: Z-A</option>
+                    {location && <option value="distance_asc">Distance: Closest</option>}
+                </select>
+                <ArrowsUpDownIcon className="w-5 h-5 text-gray-500 dark:text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none"/>
+            </div>
+        </div>
+        
+        {session ? renderContent() : (
+            <div className="text-center py-20">
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Welcome to GeoNotes AI</h2>
+              <p className="mt-2 text-gray-600 dark:text-gray-400">Please sign in to manage your notes.</p>
+            </div>
+        )}
+
+      </main>
+      <button
+        onClick={() => { setEditingNote(null); setShowNoteForm(true); }}
+        className="fixed bottom-6 right-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full p-4 shadow-lg transition-transform transform hover:scale-110 z-50"
+        aria-label="Add new note"
+      >
+        <PlusIcon className="w-8 h-8" />
+      </button>
+    </div>
   );
 };
 

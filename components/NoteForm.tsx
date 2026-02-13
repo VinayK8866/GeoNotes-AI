@@ -10,14 +10,13 @@ interface NoteFormProps {
   onCancel: () => void;
   categories: Category[];
   userLocation: Coordinates | null;
-  onRequestLocation: () => void;
   onError: (message: string) => void;
 }
 
 const TITLE_MAX_LENGTH = 150;
 const CONTENT_MAX_LENGTH = 10000;
 
-const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categories, userLocation, onRequestLocation, onError }) => {
+const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categories, userLocation, onError }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
@@ -30,19 +29,19 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
   const [isAutoFilling, setIsAutoFilling] = useState(false);
   const [errors, setErrors] = useState<{ title?: string; content?: string }>({});
 
-  const debouncedSearchTerm = useDebounce(locationSearch, 100);
+  const debouncedSearchTerm = useDebounce(locationSearch, 500);
 
   const validateForm = () => {
     const newErrors: { title?: string; content?: string } = {};
 
     if (!title.trim()) {
-      newErrors.title = 'Title is required.';
+        newErrors.title = 'Title is required.';
     } else if (title.trim().length > TITLE_MAX_LENGTH) {
-      newErrors.title = `Title must be ${TITLE_MAX_LENGTH} characters or less.`;
+        newErrors.title = `Title must be ${TITLE_MAX_LENGTH} characters or less.`;
     }
 
     if (content.length > CONTENT_MAX_LENGTH) {
-      newErrors.content = `Content must be ${CONTENT_MAX_LENGTH} characters or less.`;
+        newErrors.content = `Content must be ${CONTENT_MAX_LENGTH} characters or less.`;
     }
 
     setErrors(newErrors);
@@ -99,79 +98,76 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
     if (!title && !content) return;
     setIsCategorizing(true);
     try {
-      const category = await categorizeNote(title, content, categories);
-      if (category) {
-        setCategoryId(category.id);
-      }
+        const category = await categorizeNote(title, content, categories);
+        if (category) {
+            setCategoryId(category.id);
+        }
     } catch (error) {
-      console.error("Failed to categorize note with AI", error);
-      onError("Failed to categorize note with AI.");
+        console.error("Failed to categorize note with AI", error);
+        onError("Failed to categorize note with AI.");
     } finally {
-      setIsCategorizing(false);
+        setIsCategorizing(false);
     }
   };
 
   const handleAiAssist = async () => {
     if (!title.trim()) {
-      setErrors(prev => ({ ...prev, title: 'A title is needed for AI assist.' }));
-      return;
+        setErrors(prev => ({...prev, title: 'A title is needed for AI assist.'}));
+        return;
     }
     setIsGeneratingContent(true);
     try {
-      const newContent = await generateNoteContent(title, content);
-      setContent(prevContent => (prevContent ? `${prevContent}\n\n${newContent}` : newContent).trim());
+        const newContent = await generateNoteContent(title, content);
+        setContent(prevContent => (prevContent ? `${prevContent}\n\n${newContent}` : newContent).trim());
     } catch (error) {
-      console.error("Failed to generate content with AI", error);
-      onError((error as Error).message || 'Failed to generate content with AI.');
+        console.error("Failed to generate content with AI", error);
+        onError((error as Error).message || 'Failed to generate content with AI.');
     } finally {
-      setIsGeneratingContent(false);
+        setIsGeneratingContent(false);
     }
   };
-
+  
   const handleAiFill = async () => {
     if (!title.trim() || !userLocation) {
-      if (!title.trim()) setErrors(prev => ({ ...prev, title: 'A title is needed for AI Fill.' }));
-      if (!userLocation) {
-        onRequestLocation();
-        onError("Please allow location access, then try again.");
-      }
-      return;
+        if (!title.trim()) setErrors(prev => ({ ...prev, title: 'A title is needed for AI Fill.' }));
+        if (!userLocation) onError("Enable location access to use AI Fill.");
+        return;
     }
     setIsAutoFilling(true);
     try {
-      const generatedData = await generateFullNote(title, userLocation, categories);
+        const generatedData = await generateFullNote(title, userLocation, categories);
 
-      if (generatedData.content) {
-        setContent(prev => (prev ? `${prev}\n\n${generatedData.content}` : generatedData.content).trim());
-      }
-
-      if (generatedData.categoryName) {
-        const foundCategory = categories.find(c => c.name.toLowerCase() === generatedData.categoryName.toLowerCase());
-        if (foundCategory) {
-          setCategoryId(foundCategory.id);
+        if (generatedData.content) {
+            setContent(prev => (prev ? `${prev}\n\n${generatedData.content}` : generatedData.content).trim());
         }
-      }
 
-      if (generatedData.location?.coordinates) {
-        const locationData = {
-          name: generatedData.location.name,
-          coordinates: generatedData.location.coordinates,
-        };
-        setSelectedLocation(locationData);
-        setLocationSearch(locationData.name);
-      }
+        if (generatedData.categoryName) {
+            const foundCategory = categories.find(c => c.name.toLowerCase() === generatedData.categoryName.toLowerCase());
+            if (foundCategory) {
+                setCategoryId(foundCategory.id);
+            }
+        }
+
+        if (generatedData.location?.coordinates) {
+             const locationData = {
+                name: generatedData.location.name,
+                coordinates: generatedData.location.coordinates,
+            };
+            setSelectedLocation(locationData);
+            setLocationSearch(locationData.name);
+        }
     } catch (error) {
-      console.error("Failed to auto-fill note with AI", error);
-      onError((error as Error).message || 'Failed to auto-fill note with AI.');
+        console.error("Failed to auto-fill note with AI", error);
+        onError((error as Error).message || 'Failed to auto-fill note with AI.');
     } finally {
-      setIsAutoFilling(false);
+        setIsAutoFilling(false);
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) {
-      return;
+        return;
     }
 
     const selectedCategory = categories.find(c => c.id === categoryId);
@@ -183,7 +179,6 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
       category: selectedCategory,
       location: selectedLocation || undefined,
       created_at: noteToEdit?.created_at || new Date().toISOString(),
-      updated_at: new Date().toISOString(),
       isArchived: noteToEdit?.isArchived || false,
     };
     onSave(noteData);
@@ -198,72 +193,72 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
           <div className="p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">{formTitle}</h2>
-              <button type="button" onClick={onCancel} className="p-2 -mr-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+              <button type="button" onClick={onCancel} className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
                 <CloseIcon className="w-6 h-6" />
               </button>
             </div>
 
             <div className="mb-4">
               <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  id="title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className={`flex-grow w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md p-2 border ${errors.title ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-indigo-500'}`}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={handleAiFill}
-                  disabled={isAutoFilling || !title.trim()}
-                  title="Auto-fill note with AI (requires a title)"
-                  className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-gray-500 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isAutoFilling ? (
-                    <>
-                      <SpinnerIcon className="w-5 h-5 animate-spin" />
-                      Filling...
-                    </>
-                  ) : (
-                    <>
-                      <AiIcon className="w-5 h-5" />
-                      AI Fill
-                    </>
-                  )}
-                </button>
-              </div>
+               <div className="flex items-center gap-2">
+                    <input
+                        type="text"
+                        id="title"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        className={`flex-grow w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md p-2 border ${errors.title ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-indigo-500'}`}
+                        required
+                    />
+                    <button
+                        type="button"
+                        onClick={handleAiFill}
+                        disabled={isAutoFilling || !title.trim()}
+                        title="Auto-fill note with AI (requires a title)"
+                        className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-gray-500 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                    >
+                        {isAutoFilling ? (
+                            <>
+                                <SpinnerIcon className="w-5 h-5 animate-spin"/>
+                                Filling...
+                            </>
+                        ) : (
+                            <>
+                                <AiIcon className="w-5 h-5"/>
+                                AI Fill
+                            </>
+                        )}
+                    </button>
+                </div>
               <div className="flex justify-between items-center mt-1">
                 {errors.title ? <p className="text-sm text-red-500 dark:text-red-400">{errors.title}</p> : <div></div>}
                 <p className={`text-sm ml-auto ${title.trim().length > TITLE_MAX_LENGTH ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                  {title.trim().length} / {TITLE_MAX_LENGTH}
+                    {title.trim().length} / {TITLE_MAX_LENGTH}
                 </p>
               </div>
             </div>
 
             <div className="mb-4">
               <div className="flex justify-between items-center mb-1">
-                <label htmlFor="content" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Content</label>
-                <button
-                  type="button"
-                  onClick={handleAiAssist}
-                  disabled={isGeneratingContent || !title.trim()}
-                  title="Generate content with AI (requires a title)"
-                  className="flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-300 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed disabled:bg-transparent transition-colors"
-                >
-                  {isGeneratingContent ? (
-                    <>
-                      <SpinnerIcon className="w-4 h-4 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <AiIcon className="w-4 h-4" />
-                      AI Assist
-                    </>
-                  )}
-                </button>
+                  <label htmlFor="content" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Content</label>
+                  <button
+                      type="button"
+                      onClick={handleAiAssist}
+                      disabled={isGeneratingContent || !title.trim()}
+                      title="Generate content with AI (requires a title)"
+                      className="flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-300 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:text-gray-400 dark:disabled:text-gray-500 disabled:cursor-not-allowed disabled:bg-transparent transition-colors"
+                  >
+                      {isGeneratingContent ? (
+                          <>
+                              <SpinnerIcon className="w-4 h-4 animate-spin"/>
+                              Generating...
+                          </>
+                      ) : (
+                          <>
+                              <AiIcon className="w-4 h-4"/>
+                              AI Assist
+                          </>
+                      )}
+                  </button>
               </div>
               <textarea
                 id="content"
@@ -275,7 +270,7 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
               <div className="flex justify-between items-center mt-1">
                 {errors.content ? <p className="text-sm text-red-500 dark:text-red-400">{errors.content}</p> : <div></div>}
                 <p className={`text-sm ml-auto ${content.length > CONTENT_MAX_LENGTH ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                  {content.length} / {CONTENT_MAX_LENGTH}
+                    {content.length} / {CONTENT_MAX_LENGTH}
                 </p>
               </div>
             </div>
@@ -284,29 +279,29 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
               <div>
                 <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
                 <div className="flex items-center gap-2">
-                  <select
-                    id="category"
-                    value={categoryId || ''}
-                    onChange={(e) => setCategoryId(e.target.value)}
-                    className="flex-grow w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md p-2 border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-indigo-500"
-                  >
-                    <option value="">No Category</option>
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={handleAiCategorize}
-                    disabled={isCategorizing || categories.length === 0}
-                    title="Suggest category with AI"
-                    className="p-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-500 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isCategorizing ? <SpinnerIcon className="w-5 h-5 animate-spin" /> : <AiIcon className="w-5 h-5" />}
-                  </button>
+                    <select
+                        id="category"
+                        value={categoryId || ''}
+                        onChange={(e) => setCategoryId(e.target.value)}
+                        className="flex-grow w-full bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-md p-2 border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-indigo-500"
+                    >
+                        <option value="">No Category</option>
+                        {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                    </select>
+                    <button 
+                        type="button" 
+                        onClick={handleAiCategorize} 
+                        disabled={isCategorizing || categories.length === 0}
+                        title="Suggest category with AI"
+                        className="p-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-500 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                    >
+                        {isCategorizing ? <SpinnerIcon className="w-5 h-5 animate-spin"/> : <AiIcon className="w-5 h-5"/>}
+                    </button>
                 </div>
               </div>
-
+              
               <div className="relative">
                 <label htmlFor="location" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location</label>
                 <div className="relative">
@@ -326,15 +321,11 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
                   {isSearching && <SpinnerIcon className="w-5 h-5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 animate-spin" />}
                   {selectedLocation && (
                     <button type="button" onClick={handleClearLocation} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
-                      <CloseIcon className="w-5 h-5" />
+                        <CloseIcon className="w-5 h-5" />
                     </button>
                   )}
                 </div>
-                {!userLocation && (
-                  <button type="button" onClick={onRequestLocation} className="text-xs text-indigo-600 dark:text-indigo-400 mt-1 hover:underline text-left">
-                    Enable location access to search.
-                  </button>
-                )}
+                 {!userLocation && <p className="text-xs text-yellow-500 dark:text-yellow-400 mt-1">Enable location access to search.</p>}
 
                 {locationSuggestions.length > 0 && (
                   <ul className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto">
@@ -358,10 +349,10 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
             <button type="button" onClick={onCancel} className="px-4 py-2 text-sm font-semibold text-gray-800 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
               Cancel
             </button>
-            <button
-              type="submit"
-              disabled={Object.keys(errors).length > 0}
-              className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors disabled:bg-gray-500 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+            <button 
+                type="submit"
+                disabled={Object.keys(errors).length > 0}
+                className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors disabled:bg-gray-500 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
             >
               {noteToEdit ? 'Save Changes' : 'Add Note'}
             </button>
