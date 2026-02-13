@@ -1,0 +1,7 @@
+{
+  "name": "GeoNotes AI",
+  "description": "A location-based notes application that reminds you of your tasks when you are near a saved location. It uses AI to help you brainstorm and flesh out your notes.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
