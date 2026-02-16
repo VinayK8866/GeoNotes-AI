@@ -1,5 +1,5 @@
 import React from 'react';
-import { PlusIcon } from './Icons';
+import { PlusIcon, SearchIcon, AiIcon, ArchiveBoxIcon } from './Icons';
 
 interface EmptyStateProps {
     onAddNote: () => void;
@@ -8,34 +8,68 @@ interface EmptyStateProps {
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({ onAddNote, viewMode, isFiltered }) => {
-    let title = "You're all clear!";
-    let message = "You don't have any active notes. Ready to create one?";
+    let title: string;
+    let message: string;
+    let showAction = false;
 
     if (isFiltered) {
-        title = "No notes found";
-        message = "Try adjusting your search or filters.";
+        title = 'No notes found';
+        message = 'Try adjusting your search terms or filters.';
     } else if (viewMode === 'archived') {
-        title = "Archive is empty";
-        message = "You don't have any archived notes.";
+        title = 'Archive is empty';
+        message = 'Notes you archive will appear here.';
+    } else {
+        title = 'Start capturing ideas';
+        message = 'Create your first note — pin it to a location, tag it, or let AI help you organize it.';
+        showAction = true;
     }
 
     return (
-        <div className="text-center py-20 px-6 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <h3 className="mt-2 text-xl font-semibold text-gray-900 dark:text-white">{title}</h3>
-            <p className="mt-1 text-md text-gray-500 dark:text-gray-400">{message}</p>
-            {!isFiltered && viewMode === 'active' && (
-                <div className="mt-6">
-                    <button
-                        type="button"
-                        onClick={onAddNote}
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                    >
-                        <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
-                        New Note
-                    </button>
+        <div className="flex flex-col items-center justify-center py-20 px-4 animate-fade-in-up">
+            {/* Animated illustration */}
+            <div className="relative mb-8">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-100 to-violet-100 dark:from-indigo-900/30 dark:to-violet-900/30 flex items-center justify-center animate-float">
+                    {isFiltered ? (
+                        <SearchIcon className="w-9 h-9 text-indigo-400 dark:text-indigo-500" />
+                    ) : viewMode === 'archived' ? (
+                        <ArchiveBoxIcon className="w-9 h-9 text-indigo-400 dark:text-indigo-500" />
+                    ) : (
+                        <AiIcon className="w-9 h-9 text-indigo-500 dark:text-indigo-400" />
+                    )}
+                </div>
+                {/* Decorative dots */}
+                <div className="absolute -top-2 -right-2 w-3 h-3 rounded-full bg-violet-300 dark:bg-violet-600 opacity-60" />
+                <div className="absolute -bottom-1 -left-3 w-2 h-2 rounded-full bg-indigo-300 dark:bg-indigo-600 opacity-50" />
+            </div>
+
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{title}</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-sm leading-relaxed mb-6">
+                {message}
+            </p>
+
+            {showAction && (
+                <button
+                    onClick={onAddNote}
+                    className="btn-gradient px-6 py-2.5 text-sm flex items-center gap-2 group"
+                >
+                    <PlusIcon className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
+                    Create your first note
+                </button>
+            )}
+
+            {/* Feature hints for new users */}
+            {showAction && (
+                <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg">
+                    {[
+                        { emoji: '📍', text: 'Pin notes to locations' },
+                        { emoji: '🤖', text: 'AI-powered search' },
+                        { emoji: '📱', text: 'Works offline' },
+                    ].map((hint) => (
+                        <div key={hint.text} className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+                            <span className="text-base">{hint.emoji}</span>
+                            <span>{hint.text}</span>
+                        </div>
+                    ))}
                 </div>
             )}
         </div>

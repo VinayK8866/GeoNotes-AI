@@ -33,23 +33,6 @@ async function callGemini(model: string, payload: any) {
     return await response.json();
 }
 
-const DEFAULT_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-pro'];
-
-async function callGeminiWithFallback(models: string[], payload: any) {
-    let lastError: Error | null = null;
-
-    for (const model of models) {
-        try {
-            return await callGemini(model, payload);
-        } catch (error: any) {
-            lastError = error;
-            // Continue to next model on any error
-        }
-    }
-
-    throw lastError || new Error('All models failed');
-}
-
 serve(async (req) => {
     // Handle CORS preflight requests
     if (req.method === 'OPTIONS') {
@@ -65,10 +48,15 @@ serve(async (req) => {
         switch (action) {
             case 'suggestLocations':
                 // input: { query, userLocation }
-                result = await callGeminiWithFallback(DEFAULT_MODELS, {
+                model = 'gemini-1.5-flash';
+                const locContext = params.userLocation
+                    ? `near ${params.userLocation.latitude}, ${params.userLocation.longitude}`
+                    : "globally";
+
+                result = await callGemini(model, {
                     contents: [{
                         parts: [{
-                            text: `List 5 real places matching "${params.query}" near ${params.userLocation.latitude}, ${params.userLocation.longitude}. Return strictly a JSON array with objects containing: name, address, coordinates (latitude, longitude), placeType. No markdown.`
+                            text: `List 5 real places matching "${params.query}" ${locContext}. Return strictly a JSON array with objects containing: name, address, coordinates (latitude, longitude), placeType. No markdown.`
                         }]
                     }],
                     generationConfig: {
@@ -79,8 +67,9 @@ serve(async (req) => {
 
             case 'categorizeNote':
                 // input: { title, content, categories }
+                model = 'gemini-1.5-flash';
                 const categoryList = params.categories.map((c: any) => `"${c.name}" (id: ${c.id})`).join(', ');
-                result = await callGeminiWithFallback(DEFAULT_MODELS, {
+                result = await callGemini(model, {
                     contents: [{
                         parts: [{
                             text: `Analyze this note and choose the single most relevant category ID from the list.
@@ -95,7 +84,8 @@ serve(async (req) => {
 
             case 'generateContent':
                 // input: { title, content }
-                result = await callGeminiWithFallback(DEFAULT_MODELS, {
+                model = 'gemini-1.5-flash';
+                result = await callGemini(model, {
                     contents: [{
                         parts: [{
                             text: `Based on the title "${params.title}" and content "${params.content}", provide helpful expansion, checklist, or ideas. Keep it concise.`
@@ -106,11 +96,16 @@ serve(async (req) => {
 
             case 'generateFullNote':
                 // input: { title, userLocation, categories }
+                model = 'gemini-1.5-flash';
                 const cats = params.categories.map((c: any) => `"${c.name}"`).join(', ');
-                result = await callGeminiWithFallback(DEFAULT_MODELS, {
+                const locationPrompt = params.userLocation
+                    ? `near lat:${params.userLocation.latitude}, long:${params.userLocation.longitude}`
+                    : "without specific location context";
+
+                result = await callGemini(model, {
                     contents: [{
                         parts: [{
-                            text: `Generate a complete note (JSON) based on title "${params.title}" near lat:${params.userLocation.latitude}, long:${params.userLocation.longitude}.
+                            text: `Generate a complete note (JSON) based on title "${params.title}" ${locationPrompt}.
                         Fields: content (string), categoryName (choose from: ${cats}), location (optional object with name, address, coordinates).`
                         }]
                     }],
@@ -122,8 +117,9 @@ serve(async (req) => {
 
             case 'searchNotes':
                 // input: { query, notes }
+                model = 'gemini-1.5-pro'; // Use stronger model for search
                 const notesContext = params.notes.map((n: any) => `Title: ${n.title}\nContent: ${n.content}\n---`).join('\n');
-                result = await callGeminiWithFallback(['gemini-2.5-pro', ...DEFAULT_MODELS], {
+                result = await callGemini(model, {
                     contents: [{
                         parts: [{
                             text: `Answer query "${params.query}" based on these notes:\n${notesContext}`
@@ -136,14 +132,7 @@ serve(async (req) => {
                 throw new Error(`Unknown action: ${action}`);
         }
 
-        // Standardize output format
-        // The Gemini REST API returns { candidates: [ { content: { parts: [ { text: "..." } ] } } ] }
-        // We can just return the raw result and let the frontend parse it, OR parse it here.
-        // Let's return raw for now to keep it simple, or maybe extract text to make frontend easier?
-        // Actually, geminiService.ts expects `response.text()` from the SDK which parses this structure.
-        // If we return the raw JSON, the SDK-less frontend will need to parse `candidates[0].content.parts[0].text`.
-
-        // Let's parse it here to simplify frontend.
+        // Extract text from Gemini REST API response structure
         const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
 
         return new Response(JSON.stringify({ text }), {

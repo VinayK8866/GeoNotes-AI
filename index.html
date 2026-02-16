@@ -1,14 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236366f1'%3E%3Cpath fill-rule='evenodd' d='M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 005.169-4.418c1.558-2.209 2.221-4.664 2.221-7.149C20 6.065 16.418 3 12 3S4 6.065 4 10.5c0 2.485.663 4.94 2.22 7.149a16.975 16.975 0 005.17 4.418zM12 12a2.5 2.5 0 100-5 2.5 2.5 0 000 5z' clip-rule='evenodd' /%3E%3C/svg%3E" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GeoNotes AI</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-     crossorigin=""/>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236366f1'%3E%3Cpath fill-rule='evenodd' d='M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 005.169-4.418c1.558-2.209 2.221-4.664 2.221-7.149C20 6.065 16.418 3 12 3S4 6.065 4 10.5c0 2.485.663 4.94 2.22 7.149a16.975 16.975 0 005.17 4.418zM12 12a2.5 2.5 0 100-5 2.5 2.5 0 000 5z' clip-rule='evenodd' /%3E%3C/svg%3E" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Primary Meta Tags -->
+  <title>GeoNotes AI - Location-Aware Note-Taking with AI</title>
+  <meta name="title" content="GeoNotes AI - Location-Aware Note-Taking with AI">
+  <meta name="description"
+    content="Smart note-taking app that remembers where you created your notes. Powered by AI for intelligent search and organization. Works offline, syncs everywhere.">
+  <meta name="keywords" content="notes, location, AI, productivity, geolocation, note-taking, offline, PWA">
+  <meta name="author" content="GeoNotes AI">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://geonotes.ai/">
+  <meta property="og:title" content="GeoNotes AI - Location-Aware Note-Taking with AI">
+  <meta property="og:description"
+    content="Smart note-taking app that remembers where you created your notes. Powered by AI for intelligent search and organization.">
+  <meta property="og:image" content="/og-image.png">
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="https://geonotes.ai/">
+  <meta property="twitter:title" content="GeoNotes AI - Location-Aware Note-Taking with AI">
+  <meta property="twitter:description"
+    content="Smart note-taking app that remembers where you created your notes. Powered by AI for intelligent search and organization.">
+  <meta property="twitter:image" content="/og-image.png">
+
+  <!-- PWA & Mobile -->
+  <meta name="theme-color" content="#6366f1">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GeoNotes">
+  <link rel="manifest" href="/manifest.json">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <script type="importmap">
 {
   "imports": {
@@ -26,8 +64,14 @@
 }
 </script>
 </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+
+<body>
+  <a href="#main-content"
+    class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[9999] focus:bg-indigo-600 focus:text-white focus:px-6 focus:py-3 focus:rounded-md focus:shadow-lg focus:font-medium">
+    Skip to main content
+  </a>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
 </html>

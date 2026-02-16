@@ -1,5 +1,5 @@
-// FIX: Implemented the ErrorToast component.
 import React, { useEffect } from 'react';
+import { CloseIcon } from './Icons';
 
 interface ErrorToastProps {
   message: string;
@@ -8,36 +8,22 @@ interface ErrorToastProps {
 
 export const ErrorToast: React.FC<ErrorToastProps> = ({ message, onDismiss }) => {
   useEffect(() => {
-    const timer = setTimeout(() => {
-      onDismiss();
-    }, 5000); // Dismiss after 5 seconds
-
+    const timer = setTimeout(onDismiss, 5000);
     return () => clearTimeout(timer);
   }, [onDismiss]);
 
   return (
-    <div className="fixed top-5 right-5 bg-red-600 text-white py-3 px-5 rounded-lg shadow-lg flex items-center justify-between z-30 border border-red-800 animate-fade-in-down">
-      <style>{`
-        @keyframes fade-in-down {
-          0% {
-            opacity: 0;
-            transform: translateY(-20px);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-fade-in-down {
-          animation: fade-in-down 0.3s ease-out forwards;
-        }
-      `}</style>
-      <p className="mr-4">{message}</p>
-      <button 
-        onClick={onDismiss} 
-        className="font-bold text-red-100 hover:text-white"
+    <div className="fixed top-4 right-4 max-w-sm bg-white dark:bg-[#131c2e] rounded-xl p-4 shadow-lg border border-red-200 dark:border-red-900/30 z-[300] animate-toast flex items-start gap-3">
+      <div className="flex-shrink-0 w-1 self-stretch bg-red-500 rounded-full" />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-0.5">Error</p>
+        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{message}</p>
+      </div>
+      <button
+        onClick={onDismiss}
+        className="flex-shrink-0 p-1 rounded-md text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400 transition-colors"
       >
-        &times;
+        <CloseIcon className="w-3.5 h-3.5" />
       </button>
     </div>
   );
