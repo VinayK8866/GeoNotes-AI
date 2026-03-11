@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Coordinates } from '../types';
 
-export const useGeolocation = () => {
+export const useGeolocation = (options?: PositionOptions) => {
   const [location, setLocation] = useState<Coordinates | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(false);
@@ -33,7 +33,7 @@ export const useGeolocation = () => {
   }, []);
 
   const requestLocation = useCallback(async () => {
-    if (!navigator.geolocation) {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
       setError('Geolocation is not supported by your browser.');
       return Promise.reject(new Error('Geolocation not supported'));
     }
@@ -50,23 +50,26 @@ export const useGeolocation = () => {
           handleError(err);
           reject(err);
         },
-        { enableHighAccuracy: true, timeout: 20000 }
+        { 
+          enableHighAccuracy: options?.enableHighAccuracy ?? true, 
+          timeout: options?.timeout ?? 20000 
+        }
       );
     });
-  }, [handleSuccess, handleError]);
+  }, [handleSuccess, handleError, options?.enableHighAccuracy, options?.timeout]);
 
   useEffect(() => {
-    if (!enabled || !navigator.geolocation) return;
+    if (!enabled || typeof navigator === 'undefined' || !navigator.geolocation) return;
 
     // Start watching position once enabled
     const watcher = navigator.geolocation.watchPosition(handleSuccess, handleError, {
-      enableHighAccuracy: true,
-      timeout: 20000,
-      maximumAge: 60000
+      enableHighAccuracy: options?.enableHighAccuracy ?? true,
+      timeout: options?.timeout ?? 20000,
+      maximumAge: options?.maximumAge ?? 60000
     });
 
     return () => navigator.geolocation.clearWatch(watcher);
-  }, [enabled, handleSuccess, handleError]);
+  }, [enabled, handleSuccess, handleError, options?.enableHighAccuracy, options?.timeout, options?.maximumAge]);
 
   return { location, error, requestLocation };
 };

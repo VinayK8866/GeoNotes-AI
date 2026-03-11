@@ -22,6 +22,19 @@ export function useSubscription(userId?: string) {
 
     // Load subscription and usage data
     useEffect(() => {
+        // Try to load from local storage first for immediate instant load
+        const savedData = localStorage.getItem('geonotes_subscription_data');
+        if (savedData) {
+            try {
+                const parsed = JSON.parse(savedData);
+                setSubscription(parsed.subscription);
+                setUsage(prev => ({ ...prev, ...parsed.usage }));
+                setIsLoading(false);
+            } catch (e) {
+                console.error('Failed to parse saved subscription data', e);
+            }
+        }
+
         if (!userId) {
             setIsLoading(false);
             return;
@@ -33,14 +46,36 @@ export function useSubscription(userId?: string) {
                 const sub = await getUserSubscription(userId);
                 setSubscription(sub);
 
+                // Update local storage, preserving existing usage if available
+                let currentUsage = {
+                    notesCount: 0,
+                    aiSearchesCount: 0,
+                    devicesCount: 1,
+                };
+
+                try {
+                    const saved = localStorage.getItem('geonotes_subscription_data');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.usage) currentUsage = parsed.usage;
+                    }
+                } catch (e) {
+                    // ignore error
+                }
+
+                localStorage.setItem('geonotes_subscription_data', JSON.stringify({
+                    subscription: sub,
+                    usage: currentUsage
+                }));
+
                 // Load usage stats (in real app, fetch from Supabase)
                 // For now, we'll count notes from local DB
                 // TODO: Implement proper usage tracking in Supabase
-                setUsage({
-                    notesCount: 0, // Will be updated by app
+                setUsage(prev => ({
+                    ...prev,
                     aiSearchesCount: 0,
                     devicesCount: 1,
-                });
+                }));
             } catch (error) {
                 console.error('Error loading subscription:', error);
             } finally {

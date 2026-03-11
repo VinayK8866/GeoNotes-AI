@@ -3,6 +3,8 @@ import { LocationPinIcon, SparklesIcon, CloudIcon, ShieldCheckIcon, GoogleIcon, 
 
 interface LandingPageProps {
     onSignIn: () => void;
+    onViewPrivacy: () => void;
+    onJoinWaitlist?: () => void;
 }
 
 const pricingTiers = [
@@ -28,9 +30,9 @@ const pricingTiers = [
         name: 'Teams',
         priceMonthly: '$15',
         priceYearly: '$150',
-        description: 'Collaborate with your team on shared maps.',
+        description: 'Coming Soon • Collaborate with your team on shared maps.',
         features: ['Everything in Pro', 'Shared workspaces', 'Team collaboration', 'Admin dashboard', 'Audit logs'],
-        cta: 'Contact Sales',
+        cta: 'Join Waitlist',
         popular: false
     }
 ];
@@ -39,8 +41,8 @@ const features = [
     { icon: LocationPinIcon, title: 'Location-Aware', description: 'Pin notes to any place in the world — get reminders when you arrive.', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
     { icon: SparklesIcon, title: 'AI-Powered', description: 'Ask questions about your notes and get instant, intelligent answers.', color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-900/20' },
     { icon: CloudIcon, title: 'Offline-First', description: 'Works without internet and syncs seamlessly when back online.', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-    { icon: ShieldCheckIcon, title: 'Secure & Private', description: 'End-to-end encrypted. Your data never leaves your account.', color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-    { icon: UsersIcon, title: 'Team Sharing', description: 'Share notes and maps with your team — collaborate in real-time.', color: 'text-pink-500', bg: 'bg-pink-50 dark:bg-pink-900/20' },
+    { icon: ShieldCheckIcon, title: 'Secure & Private', description: 'AES-256 local storage encryption (Coming Soon). Your data stays yours.', color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20' },
+    { icon: UsersIcon, title: 'Team Sharing', description: 'Share notes and maps with your team (Coming Soon) — collaborate in real-time.', color: 'text-pink-500', bg: 'bg-pink-50 dark:bg-pink-900/20' },
     { icon: BoltIcon, title: 'Blazing Fast', description: 'Built with modern tech for instant load times and smooth interactions.', color: 'text-cyan-500', bg: 'bg-cyan-50 dark:bg-cyan-900/20' },
 ];
 
@@ -51,7 +53,7 @@ const stats = [
     { number: '4.9★', label: 'App Rating' },
 ];
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onSignIn }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onSignIn, onViewPrivacy, onJoinWaitlist }) => {
     const [billingInterval, setBillingInterval] = React.useState<'month' | 'year'>('month');
 
     return (
@@ -216,10 +218,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignIn }) => {
                                     ))}
                                 </ul>
                                 <button
-                                    onClick={onSignIn}
+                                    onClick={() => {
+                                        if (tier.name === 'Teams' && onJoinWaitlist) {
+                                            onJoinWaitlist();
+                                        } else {
+                                            onSignIn();
+                                        }
+                                    }}
                                     className={`w-full py-2.5 px-4 rounded-xl text-sm font-bold transition-all ${tier.popular
                                         ? 'bg-white text-indigo-700 hover:bg-slate-50 shadow-lg'
-                                        : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100'
+                                        : tier.name === 'Teams' ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60' : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100'
                                         }`}
                                 >
                                     {tier.cta}
@@ -258,8 +266,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSignIn }) => {
                         <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">GeoNotes AI</span>
                     </div>
                     <div className="flex items-center gap-6 text-xs text-slate-400 dark:text-slate-500">
-                        <a href="#privacy" className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">Privacy</a>
-                        <a href="#terms" className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">Terms</a>
+                        <button onClick={onViewPrivacy} className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">Privacy</button>
+                        <button onClick={onViewPrivacy} className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">Terms</button>
                         <a href="mailto:support@geonotes.ai" className="hover:text-slate-600 dark:hover:text-slate-300 transition-colors">Contact</a>
                     </div>
                     <p className="text-[11px] text-slate-400 dark:text-slate-500">© 2026 GeoNotes AI. All rights reserved.</p>

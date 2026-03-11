@@ -1,16 +1,24 @@
 
 import React from 'react';
 import { LocationAccuracy } from '../types';
-import { CloseIcon, LocationPinIcon, BatteryIcon } from './Icons';
+import { CloseIcon, LocationPinIcon, BatteryIcon, ShieldCheckIcon, EyeOpenIcon, EyeClosedIcon } from './Icons';
 
 interface SettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
     accuracy: LocationAccuracy;
     onAccuracyChange: (accuracy: LocationAccuracy) => void;
+    encryptionEnabled: boolean;
+    onEncryptionToggle: (enabled: boolean) => void;
+    masterPassword: string;
+    onMasterPasswordChange: (password: string) => void;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, accuracy, onAccuracyChange }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ 
+    isOpen, onClose, accuracy, onAccuracyChange,
+    encryptionEnabled, onEncryptionToggle, masterPassword, onMasterPasswordChange
+}) => {
+    const [showPassword, setShowPassword] = React.useState(false);
     if (!isOpen) return null;
 
     return (
@@ -47,6 +55,52 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, a
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Approximated location. Uses WiFi/Cell (saves battery).</p>
                             </div>
                         </label>
+                    </div>
+
+                    <div className="mt-8">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+                             Security
+                             <span className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[10px] px-2 py-0.5 rounded-full">New</span>
+                        </h3>
+                        
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                                <div>
+                                    <h4 className="text-sm font-medium dark:text-white">End-to-End Encryption</h4>
+                                    <p className="text-xs text-gray-500">Encrypt notes before syncing.</p>
+                                </div>
+                                <button 
+                                    onClick={() => onEncryptionToggle(!encryptionEnabled)}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${encryptionEnabled ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700'}`}
+                                >
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${encryptionEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                </button>
+                            </div>
+
+                            {encryptionEnabled && (
+                                <div className="space-y-2 animate-fade-in">
+                                    <label className="text-xs font-medium text-gray-500">Master Password (Local Only)</label>
+                                    <div className="relative">
+                                        <input 
+                                            type={showPassword ? 'text' : 'password'}
+                                            value={masterPassword}
+                                            onChange={(e) => onMasterPasswordChange(e.target.value)}
+                                            placeholder="Enter strong password..."
+                                            className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        />
+                                        <button 
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                        >
+                                            {showPassword ? <EyeClosedIcon className="w-4 h-4" /> : <EyeOpenIcon className="w-4 h-4" />}
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-amber-600 dark:text-amber-500 leading-tight">
+                                        ⚠️ Warning: We cannot recover this password. If lost, your encrypted notes are gone forever.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
                 <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">

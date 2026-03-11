@@ -1,73 +1,116 @@
-
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Coordinates, Category, LocationSuggestion, Note } from '../types';
-import { supabase } from '../supabaseClient';
 
-// Helper function to invoke Edge Function
-async function callEdgeFunction(action: string, params: any) {
-    if (!supabase) {
-        throw new Error('Supabase client is not initialized.');
-    }
+// Client-side API Key (Must be set in .env)
+// Client-side API Key (Must be set in .env)
+const API_KEY = import.meta.env?.VITE_GEMINI_API_KEY;
 
-    console.log(`Invoking Edge Function: ${action}`);
+// Initialize Gemini Client
+const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
 
-    const { data, error } = await supabase.functions.invoke('gemini-proxy', {
-        body: { action, ...params }
-    });
+// Helper to get model
+// Helper to get model
+const getModel = () => {
+    if (!genAI) throw new Error("VITE_GEMINI_API_KEY is missing in your .env file.");
+    // fast and cost effective model
+    return genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+};
 
-    if (error) {
-        console.error(`Edge Function Error (${action}):`, error);
-        // Provide user-friendly error messages
-        const message = error.message || '';
-        if (message.includes('503') || message.includes('overloaded')) {
-            throw new Error('Our AI service is busy right now. Please try again in a moment.');
-        } else if (message.includes('401') || message.includes('unauthorized')) {
-            throw new Error('Authentication error. Please sign in again.');
-        } else if (message.includes('timeout')) {
-            throw new Error('The request took too long. Please check your connection and try again.');
-        } else {
-            throw new Error('Something went wrong with our AI service. Please try again.');
+// Retry helper for Gemini API
+async function retryGeminiCall<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
+    for (let i = 0; i < retries; i++) {
+        try {
+            return await fn();
+        } catch (error: any) {
+            if (i === retries - 1) throw error;
+            if (error.message.includes('429') || error.message.includes('503')) {
+                await new Promise(r => setTimeout(r, 1000 * (i + 1))); // Exponential backoff
+                continue;
+            }
+            throw error;
         }
     }
+    throw new Error("Failed after retries");
+}
 
-    // The edge function returns object { text: "..." }
-    return data;
+// Helper to clean JSON
+function cleanJson(text: string): string {
+    let jsonString = text.trim();
+    if (jsonString.startsWith('```')) {
+        jsonString = jsonString.replace(/^```(json)?\n/, '').replace(/```$/, '');
+    }
+    return jsonString;
+}
+
+// Nominatim Geocoding Helper
+async function geocodeWithNominatim(query: string): Promise<LocationSuggestion[]> {
+    try {
+        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`;
+        const response = await fetch(url, {
+            headers: { 'User-Agent': 'GeoNotesAI/1.0' }
+        });
+        if (!response.ok) return [];
+
+        const data = await response.json();
+        return data.map((item: any) => ({
+            name: item.display_name.split(',')[0],
+            address: item.display_name,
+            coordinates: {
+                latitude: parseFloat(item.lat),
+                longitude: parseFloat(item.lon)
+            },
+            placeType: item.type
+        }));
+    } catch (error) {
+        console.error("Nominatim error:", error);
+        return [];
+    }
 }
 
 // Simple in-memory cache for location suggestions
 const locationCache = new Map<string, LocationSuggestion[]>();
 
 export const suggestLocations = async (query: string, userLocation: Coordinates | null): Promise<LocationSuggestion[]> => {
-    // Check cache first (use 'unknown' if no location)
     const locKey = userLocation ? `${userLocation.latitude.toFixed(4)}-${userLocation.longitude.toFixed(4)}` : 'unknown';
     const cacheKey = `${query.toLowerCase()}-${locKey}`;
 
-    if (locationCache.has(cacheKey)) {
-        return locationCache.get(cacheKey)!;
+    if (locationCache.has(cacheKey)) return locationCache.get(cacheKey)!;
+
+    // 1. Try Nominatim first (Fastest)
+    const nominatimResults = await geocodeWithNominatim(query);
+    if (nominatimResults.length > 0) {
+        locationCache.set(cacheKey, nominatimResults);
+        return nominatimResults;
     }
 
+    // 2. Fallback to Gemini if Nominatim fails
     try {
-        const response = await callEdgeFunction('suggestLocations', { query, userLocation });
+        const model = getModel();
+        const locContext = userLocation
+            ? `near ${userLocation.latitude}, ${userLocation.longitude}`
+            : "globally";
+
+        const prompt = `List 5 real places matching "${query}" ${locContext}. Return strictly a JSON array with objects containing: name, address, coordinates (latitude, longitude), placeType. No markdown.`;
+
+        const result = await retryGeminiCall(() => model.generateContent(prompt));
+        const response = await result.response;
+        const text = response.text();
 
         let suggestions: LocationSuggestion[] = [];
         try {
-            suggestions = JSON.parse(response.text);
+            suggestions = JSON.parse(cleanJson(text));
         } catch (e) {
-            console.error("Failed to parse JSON from Edge Function", response);
-            throw new Error("Invalid response format from AI");
+            console.error("JSON Parse Error:", text);
+            throw new Error("Invalid format from AI");
         }
 
-        // Cache the result
         locationCache.set(cacheKey, suggestions);
-        if (locationCache.size > 100) {
-            const firstKey = locationCache.keys().next().value;
-            if (firstKey !== undefined) locationCache.delete(firstKey);
-        }
-
         return suggestions;
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error suggesting locations:', error);
-        throw new Error('Failed to get location suggestions from AI.');
+        // Don't throw if just suggestion fails, return empty
+        return [];
     }
 };
 
@@ -75,30 +118,40 @@ export const categorizeNote = async (title: string, content: string, categories:
     if (categories.length === 0) return null;
 
     try {
-        const response = await callEdgeFunction('categorizeNote', { title, content, categories });
-        const categoryId = response.text.trim();
-        const foundCategory = categories.find(c => c.id === categoryId);
+        const model = getModel();
+        const categoryList = categories.map(c => `"${c.name}" (id: ${c.id})`).join(', ');
+        const prompt = `Analyze this note and choose the single most relevant category ID from the list.
+        Note Title: "${title}"
+        Note Content: "${content}"
+        Available Categories: ${categoryList}
+        Respond with only the ID.`;
 
-        return foundCategory || null;
+        const result = await retryGeminiCall(() => model.generateContent(prompt));
+        const response = await result.response;
+        const categoryId = cleanJson(response.text());
+
+        return categories.find(c => c.id === categoryId) || null;
 
     } catch (error) {
         console.error('Error categorizing note:', error);
-        return null;
+        return null; // Fail silently for categorization
     }
 };
 
 export const generateNoteContent = async (title: string, currentContent: string): Promise<string> => {
-    if (!title.trim()) {
-        throw new Error("A title is required to generate content.");
-    }
+    if (!title.trim()) throw new Error("A title is required.");
 
     try {
-        const response = await callEdgeFunction('generateContent', { title, content: currentContent });
-        return response.text.trim();
+        const model = getModel();
+        const prompt = `Based on the title "${title}" and content "${currentContent}", provide helpful expansion, checklist, or ideas. Keep it concise.`;
 
-    } catch (error) {
-        console.error('Error generating note content:', error);
-        throw new Error('Failed to generate content with AI.');
+        const result = await retryGeminiCall(() => model.generateContent(prompt));
+        const response = await result.response;
+        return response.text();
+
+    } catch (error: any) {
+        console.error('Error generating content:', error);
+        throw new Error(error.message || 'Failed to generate content.');
     }
 };
 
@@ -106,24 +159,43 @@ export const generateNoteContent = async (title: string, currentContent: string)
 type GeneratedNote = {
     content: string;
     categoryName: string;
-    location?: {
-        name: string;
-        address: string;
-        coordinates: Coordinates;
-    };
+    locationName?: string; // Changed from full location object to just name/address prompt
+    locationAddress?: string; // Optional precise address to help search
 };
 
 export const generateFullNote = async (title: string, userLocation: Coordinates | null, categories: Category[]): Promise<GeneratedNote> => {
     if (!title.trim()) throw new Error("A title is required.");
 
     try {
-        const response = await callEdgeFunction('generateFullNote', { title, userLocation, categories });
-        const generatedNote: GeneratedNote = JSON.parse(response.text);
-        return generatedNote;
+        const model = getModel();
+        const cats = categories.map(c => `"${c.name}"`).join(', ');
+        const locationPrompt = userLocation
+            ? `near lat:${userLocation.latitude}, long:${userLocation.longitude}`
+            : "without specific location context";
 
-    } catch (error) {
+        // Simplified prompt: Ask for location NAME, not coordinates.
+        const prompt = `Generate a complete note (JSON) based on title "${title}" ${locationPrompt}.
+        Fields: 
+        - content (string): The note content.
+        - categoryName (string): Choose from: ${cats}.
+        - locationName (string, optional): The name of the place described in the title.
+        - locationAddress (string, optional): The address/city of the place if known.
+        Return strict JSON.`;
+
+        const result = await retryGeminiCall(() => model.generateContent(prompt));
+        const response = await result.response;
+        const text = response.text();
+
+        try {
+            return JSON.parse(cleanJson(text));
+        } catch (e) {
+            console.error("JSON Parse Error:", text);
+            throw new Error("Invalid JSON format from AI");
+        }
+
+    } catch (error: any) {
         console.error('Error generating full note:', error);
-        throw new Error('Failed to generate a complete note with AI.');
+        throw new Error(`AI Error: ${error.message}`);
     }
 };
 
@@ -131,10 +203,15 @@ export const searchNotesWithAi = async (query: string, notes: Note[]): Promise<s
     if (!query.trim()) throw new Error("Query required.");
 
     try {
-        const response = await callEdgeFunction('searchNotes', { query, notes });
-        return response.text.trim();
-    } catch (error) {
+        const model = getModel();
+        const notesContext = notes.map(n => `Title: ${n.title}\nContent: ${n.content}\n---`).join('\n');
+        const prompt = `Answer query "${query}" based on these notes:\n${notesContext}`;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return response.text();
+    } catch (error: any) {
         console.error('Error searching notes:', error);
-        throw new Error('Failed to search notes with AI.');
+        throw new Error(error.message || 'Failed to search notes.');
     }
 };

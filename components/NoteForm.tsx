@@ -55,8 +55,15 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
       setCategoryId(noteToEdit.category?.id);
       setSelectedLocation(noteToEdit.location || null);
       setLocationSearch(noteToEdit.location?.name || '');
+    } else if (userLocation && !selectedLocation) {
+        // Auto-assign current location for new notes as a default
+        setSelectedLocation({
+            name: 'Current Location',
+            coordinates: userLocation
+        });
+        setLocationSearch('Current Location');
     }
-  }, [noteToEdit]);
+  }, [noteToEdit, userLocation]);
 
   useEffect(() => {
     if (debouncedSearchTerm.trim().length > 2) {
@@ -147,13 +154,35 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
         }
       }
 
-      if (generatedData.location?.coordinates) {
-        const locationData = {
-          name: generatedData.location.name,
-          coordinates: generatedData.location.coordinates,
-        };
-        setSelectedLocation(locationData);
-        setLocationSearch(locationData.name);
+      // Handle location: If AI provides a name/address, try to geocode it
+      if (generatedData.locationName) {
+        const query = generatedData.locationAddress
+          ? `${generatedData.locationName}, ${generatedData.locationAddress}`
+          : generatedData.locationName;
+
+        setLocationSearch(query);
+        setIsSearching(true);
+
+        // Trigger generic search to find coordinates for this name
+        try {
+          const suggestions = await suggestLocations(query, userLocation);
+          if (suggestions.length > 0) {
+            // Auto-select the first suggestion if it matches well
+            const topMatch = suggestions[0];
+            setSelectedLocation({
+              name: topMatch.name,
+              coordinates: topMatch.coordinates
+            });
+            setLocationSearch(topMatch.name); // Keep it clean
+          } else {
+            // No coordinates found, but fill the search box so user can refine
+            setSelectedLocation(null);
+          }
+        } catch (e) {
+          console.error("Failed to resolve location from AI suggestion", e);
+        } finally {
+          setIsSearching(false);
+        }
       }
     } catch (error) {
       console.error("Failed to auto-fill note with AI", error);

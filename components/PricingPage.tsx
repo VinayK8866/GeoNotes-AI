@@ -4,6 +4,7 @@ import { CheckIcon, SparklesIcon, LocationPinIcon, CloseIcon } from './Icons';
 interface PricingPageProps {
     onSelectPlan: (priceId: string) => void;
     currentPlan: 'free' | 'pro' | 'teams';
+    onJoinWaitlist?: () => void;
 }
 
 interface PricingTier {
@@ -56,8 +57,8 @@ const tiers: PricingTier[] = [
         priceMonthly: '$15',
         priceYearly: '$150',
         priceId: 'teams_monthly',
-        description: 'Collaborate with your team on shared maps and notes.',
-        cta: 'Contact Sales',
+        description: 'Coming Soon • Collaborate with your team on shared maps.',
+        cta: 'Join Waitlist',
         features: [
             'Everything in Pro',
             'Shared workspaces',
@@ -85,7 +86,7 @@ const faqItems = [
     },
 ];
 
-export const PricingPage: React.FC<PricingPageProps> = ({ onSelectPlan, currentPlan }) => {
+export const PricingPage: React.FC<PricingPageProps> = ({ onSelectPlan, currentPlan, onJoinWaitlist }) => {
     const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
 
     return (
@@ -171,13 +172,19 @@ export const PricingPage: React.FC<PricingPageProps> = ({ onSelectPlan, currentP
                                 </ul>
 
                                 <button
-                                    onClick={() => !isCurrentPlan && onSelectPlan(priceId)}
+                                    onClick={() => {
+                                        if (tier.name === 'Teams' && onJoinWaitlist) {
+                                            onJoinWaitlist();
+                                        } else if (!isCurrentPlan) {
+                                            onSelectPlan(priceId);
+                                        }
+                                    }}
                                     disabled={isCurrentPlan}
                                     className={`w-full py-2.5 px-4 rounded-xl text-sm font-bold transition-all ${isCurrentPlan
                                         ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed'
                                         : tier.popular
                                             ? 'bg-white text-indigo-700 hover:bg-slate-50 shadow-md hover:shadow-lg hover:-translate-y-0.5'
-                                            : 'btn-gradient'
+                                            : tier.name === 'Teams' ? 'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/60' : 'btn-gradient'
                                         }`}
                                 >
                                     {isCurrentPlan ? 'Current Plan' : tier.cta}

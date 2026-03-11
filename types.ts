@@ -29,6 +29,9 @@ export interface Note {
   };
   created_at: string; // ISO string
   isArchived: boolean;
+  isEncrypted?: boolean;
 }
 
 export type SortOption = 'created_at_desc' | 'created_at_asc' | 'title_asc' | 'title_desc' | 'distance_asc';
+
+export type LocationAccuracy = 'high' | 'low';

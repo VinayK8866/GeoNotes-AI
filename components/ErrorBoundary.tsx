@@ -24,6 +24,10 @@ export class ErrorBoundary extends Component<Props, State> {
 
     public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
         console.error('Uncaught error:', error, errorInfo);
+        // Track production crash
+        import('../services/analyticsService').then(({ trackEvent }) => {
+            trackEvent.errorOccurred(error.message, JSON.stringify(errorInfo));
+        });
     }
 
     public render() {

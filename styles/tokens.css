@@ -69,6 +69,11 @@
   --sidebar-width: 260px;
   --sidebar-collapsed-width: 72px;
   --header-height: 56px;
+  --header-safe-padding: env(safe-area-inset-top, 0);
+  --content-safe-padding-bottom: env(safe-area-inset-bottom, 0);
+
+  /* Layout state variables (will be overridden by media queries) */
+  --current-sidebar-width: var(--sidebar-width);
 
   /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -132,6 +137,7 @@ body {
   background-color: var(--bg-app);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  padding-bottom: var(--content-safe-padding-bottom);
 }
 
 /* ============ Focus ============ */
@@ -456,6 +462,7 @@ body {
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
   border-bottom: 1px solid var(--border-1);
+  padding-top: var(--header-safe-padding);
 }
 
 .dark .glass-panel {
@@ -787,10 +794,30 @@ body {
 }
 
 /* ===========================================================
-   Responsive Helpers
+   Responsive Layout & Helpers
    =========================================================== */
-@media (max-width: 768px) {
+:root {
+  --main-content-margin: var(--current-sidebar-width);
+}
+
+@media (max-width: 767px) {
   :root {
-    --sidebar-width: 0px;
+    --current-sidebar-width: 0px;
+    --main-content-margin: 0px;
+  }
+}
+
+@media (min-width: 768px) {
+  /* Dynamic sidebar adjustment classes */
+  .layout-collapsed {
+    --current-sidebar-width: var(--sidebar-collapsed-width);
+  }
+  
+  .layout-expanded {
+    --current-sidebar-width: var(--sidebar-width);
+  }
+
+  .layout-no-sidebar {
+    --current-sidebar-width: 0px;
   }
 }

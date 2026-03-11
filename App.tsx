@@ -7,30 +7,40 @@ import { Note, Category, SortOption } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
 import { useTheme } from './hooks/useTheme';
 import { useSubscription } from './hooks/useSubscription';
+import { useAuth } from './hooks/useAuth';
 import { getDistance } from './utils/geolocation';
 import { REMINDER_RADIUS_METERS, NOTES_PER_PAGE } from './constants';
 import * as db from './utils/db';
+import { SettingsModal } from './components/SettingsModal';
+import { PrivacyPolicy } from './components/PrivacyPolicy';
+import { LocationAccuracy } from './types';
+import * as cryptoUtils from './utils/crypto';
+import { joinWaitlist } from './services/waitlistService';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { NoteCard } from './components/NoteCard';
+import { SuccessToast } from './components/SuccessToast';
 import { CategoryFilter } from './components/CategoryFilter';
 import { UndoToast } from './components/UndoToast';
 import { ErrorToast } from './components/ErrorToast';
 import { NotificationPermissionBanner } from './components/NotificationPermissionBanner';
-import { UpgradeModal } from './components/UpgradeModal';
-import { PlusIcon, SpinnerIcon, CloseIcon, AiIcon, ArrowsUpDownIcon, LocationPinIcon, Bars3Icon } from './components/Icons';
+import { SEO } from './components/SEO';
+import { PlusIcon, SpinnerIcon, CloseIcon, AiIcon, ArrowsUpDownIcon, LocationPinIcon, Bars3Icon, CogIcon } from './components/Icons';
 import { searchNotesWithAi } from './services/geminiService';
+import { analytics, trackEvent } from './services/analyticsService';
+import { LoadingSkeleton } from './components/LoadingSkeleton';
 import { NoteCardSkeleton } from './components/NoteCardSkeleton';
 import { EmptyState } from './components/EmptyState';
-import { LandingPage } from './components/LandingPage';
-import { PricingPage } from './components/PricingPage';
-import { OnboardingFlow } from './components/OnboardingFlow';
-import { SEO } from './components/SEO';
-import { analytics, trackEvent } from './services/analyticsService';
+import { AppSkeleton } from './components/AppSkeleton';
 
 const MapView = lazy(() => import('./components/MapView'));
 const NoteForm = lazy(() => import('./components/NoteForm'));
+const LandingPage = lazy(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })));
+const PricingPage = lazy(() => import('./components/PricingPage').then(m => ({ default: m.PricingPage })));
+const OnboardingFlow = lazy(() => import('./components/OnboardingFlow').then(m => ({ default: m.OnboardingFlow })));
+const AppreciationModal = lazy(() => import('./components/AppreciationModal').then(m => ({ default: m.AppreciationModal })));
+const UpgradeModal = lazy(() => import('./components/UpgradeModal').then(m => ({ default: m.UpgradeModal })));
 
 const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat-1', name: 'Work', color: 'bg-blue-500' },
@@ -41,10 +51,13 @@ const DEFAULT_CATEGORIES: Category[] = [
 
 const App: React.FC = () => {
   const { theme, setTheme, effectiveTheme } = useTheme();
-  const [session, setSession] = useState<Session | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  // Use centralized auth hook
+  const { session, isLoading: isAuthLoading, signIn: authSignIn, signOut: authSignOut, isSupabaseConfigured } = useAuth();
+
   const [notes, setNotes] = useState<Note[]>([]);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [totalNotesCount, setTotalNotesCount] = useState(0);
+  const [isOnline, setIsOnline] = useState(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,8 +67,10 @@ const App: React.FC = () => {
   const [recentlyArchived, setRecentlyArchived] = useState<Note | null>(null);
   const [page, setPage] = useState(1);
   const [hasMoreOnlineNotes, setHasMoreOnlineNotes] = useState(true);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [sentNotifications, setSentNotifications] = useState<Set<string>>(() => {
+    if (typeof localStorage === 'undefined') return new Set();
     const saved = localStorage.getItem('sentNotifications');
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
@@ -66,6 +81,19 @@ const App: React.FC = () => {
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [isAiSearching, setIsAiSearching] = useState(false);
   const [aiSearchResult, setAiSearchResult] = useState<string | null>(null);
+  const [showAppreciation, setShowAppreciation] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [accuracy, setAccuracy] = useState<LocationAccuracy>(() => {
+    if (typeof localStorage === 'undefined') return 'high';
+    return (localStorage.getItem('location_accuracy') as LocationAccuracy) || 'high';
+  });
+  const [encryptionEnabled, setEncryptionEnabled] = useState(() => {
+    if (typeof localStorage === 'undefined') return false;
+    return localStorage.getItem('encryption_enabled') === 'true';
+  });
+  const [masterPassword, setMasterPassword] = useState('');
+  const [cryptoKey, setCryptoKey] = useState<CryptoKey | null>(null);
 
   // Subscription & Pricing
   const [showPricingPage, setShowPricingPage] = useState(false);
@@ -76,16 +104,79 @@ const App: React.FC = () => {
   // Onboarding
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(() => {
+    if (typeof localStorage === 'undefined') return false;
     return localStorage.getItem('onboarding_completed') === 'true';
   });
 
   // Sidebar state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof localStorage === 'undefined') return false;
     return localStorage.getItem('sidebar_collapsed') === 'true';
   });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
-  const { location, error: locationError, requestLocation } = useGeolocation();
+  const { location, error: locationError, requestLocation } = useGeolocation({
+    enableHighAccuracy: accuracy === 'high',
+    timeout: 20000,
+    maximumAge: 60000
+  });
+  useEffect(() => {
+    localStorage.setItem('location_accuracy', accuracy);
+  }, [accuracy]);
+
+  useEffect(() => {
+    localStorage.setItem('encryption_enabled', encryptionEnabled.toString());
+  }, [encryptionEnabled]);
+
+  // Derive key when password changes
+  useEffect(() => {
+    if (encryptionEnabled && masterPassword && session?.user.id) {
+        cryptoUtils.deriveKey(masterPassword, session.user.id).then(setCryptoKey);
+    } else {
+        setCryptoKey(null);
+    }
+  }, [masterPassword, encryptionEnabled, session?.user.id]);
+
+  const [decryptedNotes, setDecryptedNotes] = useState<Note[]>([]);
+
+  useEffect(() => {
+    const performDecryption = async () => {
+        if (!encryptionEnabled || !cryptoKey) {
+            setDecryptedNotes(notes);
+            return;
+        }
+
+        const results = await Promise.all(notes.map(async (n) => {
+            if (n.isEncrypted) {
+                try {
+                    const decryptedTitle = await cryptoUtils.decryptText(n.title, cryptoKey);
+                    const decryptedContent = await cryptoUtils.decryptText(n.content, cryptoKey);
+                    return { ...n, title: decryptedTitle, content: decryptedContent, isEncrypted: false };
+                } catch (err) {
+                    return { ...n, title: '🔒 Encrypted Note', content: 'Unlock with your Master Password in settings.' };
+                }
+            }
+            return n;
+        }));
+        setDecryptedNotes(results);
+    };
+
+    performDecryption();
+  }, [notes, encryptionEnabled, cryptoKey]);
+
+  // Keyboard shortcut: ⌘K to focus search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[type="search"]') as HTMLInputElement;
+        if (searchInput) searchInput.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const noteRefs = useRef(new Map<string, HTMLDivElement>());
 
   // Persist sidebar collapsed state
@@ -95,10 +186,20 @@ const App: React.FC = () => {
 
   const syncAndFetchInitialNotes = useCallback(async (currentSession: Session) => {
     setIsSyncing(true);
-    if (!navigator.onLine) {
-      setError("You are offline. Showing locally saved data.");
+
+    // Always load local data first for instant UI (stale-while-revalidate)
+    try {
       const localNotes = await db.getNotesFromDB();
-      setNotes(localNotes);
+      if (localNotes && localNotes.length > 0) {
+        setNotes(localNotes);
+        setTotalNotesCount(localNotes.length); // Temporary local count
+      }
+    } catch (e) {
+      console.warn('Failed to load local notes:', e);
+    }
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setError("You are offline. Showing locally saved data.");
       setIsSyncing(false);
       return;
     };
@@ -124,6 +225,17 @@ const App: React.FC = () => {
           await db.deleteNoteFromQueue(update.id);
         }
         console.log('Offline sync complete.');
+      }
+
+      // Fetch Count
+      const { count, error: countError } = await supabase
+        .from('notes')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', currentSession.user.id)
+        .eq('isArchived', false); // Only count active notes for the badge
+
+      if (!countError && count !== null) {
+        setTotalNotesCount(count);
       }
 
       const from = 0;
@@ -152,67 +264,23 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Track explicit sign out to prevent auth listener race conditions
-  const isSignOut = useRef(false);
-
+  // React to session changes to fetch data
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      setIsAuthLoading(false);
-      return;
+    if (session) {
+      syncAndFetchInitialNotes(session).catch(console.error);
+    } else {
+      // Clear data if no session (handled by useAuth cleanup mostly, but good to be safe)
+      setNotes([]);
     }
+  }, [session, syncAndFetchInitialNotes]);
 
-    // Safety timeout to prevent stuck loading screen
-    const timeoutId = setTimeout(() => {
-      console.warn('Auth loading timeout - forcing UI to show');
-      setIsAuthLoading(false);
-    }, 2000);
-
-    setIsAuthLoading(true);
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      // If we are explicitly signing out, ignore session updates that might trigger loading
-      if (isSignOut.current) {
-        setIsAuthLoading(false);
-        return;
-      }
-
-      setSession(session);
-      if (session) {
-        await syncAndFetchInitialNotes(session).catch(console.error);
-      } else {
-        await db.clearLocalData();
-        setNotes([]);
-        setActiveFilter(null);
-        setSearchQuery('');
-        setSortOption('created_at_desc');
-        setViewMode('active');
-        setAiSearchResult(null);
-        setRecentlyArchived(null);
-        setIsSyncing(false);
-      }
-
-      clearTimeout(timeoutId);
-      setIsAuthLoading(false);
-    });
-
-    return () => {
-      clearTimeout(timeoutId);
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  // ... (lines 193-467 skipped)
+  const handleSignIn = async () => {
+    await authSignIn();
+  };
 
   const handleSignOut = async () => {
-    try {
-      // Set flag to block auth listener from overriding state
-      isSignOut.current = true;
-
-      // Immediately clear local session to update UI instantly
-      setSession(null);
-      setIsAuthLoading(false); // Ensure loading is false immediately
-
-      // Perform cleanup in background
-      await db.clearLocalData();
+    await authSignOut(() => {
+      // UI cleanup callback
       setNotes([]);
       setActiveFilter(null);
       setSearchQuery('');
@@ -221,18 +289,7 @@ const App: React.FC = () => {
       setAiSearchResult(null);
       setRecentlyArchived(null);
       setIsSyncing(false);
-      localStorage.removeItem('onboarding_completed');
-
-      // Call Supabase signOut (best effort)
-      await supabase.auth.signOut();
-    } catch (error: any) {
-      console.error('Sign out error:', error);
-    } finally {
-      // Reset flag after a delay to allow future sign-ins
-      setTimeout(() => {
-        isSignOut.current = false;
-      }, 1000);
-    }
+    });
   };
 
   // Initialize analytics
@@ -311,7 +368,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const updateOnlineStatus = () => {
-      const online = navigator.onLine;
+      const online = typeof navigator !== 'undefined' ? navigator.onLine : true;
       setIsOnline(online);
       if (online && session) {
         syncAndFetchInitialNotes(session);
@@ -371,42 +428,93 @@ const App: React.FC = () => {
       return;
     }
 
-    const optimisticNotes = isNew ? [note, ...notes] : notes.map(n => (n.id === note.id ? note : n));
+    let noteToSave = { ...note };
+
+    // Apply Encryption
+    if (encryptionEnabled && cryptoKey) {
+        try {
+            const encryptedTitle = await cryptoUtils.encryptText(noteToSave.title, cryptoKey);
+            const encryptedContent = await cryptoUtils.encryptText(noteToSave.content, cryptoKey);
+            noteToSave = {
+                ...noteToSave,
+                title: encryptedTitle,
+                content: encryptedContent,
+                isEncrypted: true
+            };
+        } catch (err) {
+            setError('Encryption failed. Note not saved.');
+            return;
+        }
+    }
+
+    const optimisticNotes = isNew ? [noteToSave, ...notes] : notes.map(n => (n.id === noteToSave.id ? noteToSave : n));
     setNotes(optimisticNotes);
     setShowNoteForm(false);
     setEditingNote(null);
 
-    await db.saveNoteToDB(note);
+    await db.saveNoteToDB(noteToSave);
 
     if (isNew && subscription) {
       subscription.updateUsage('notesCount', 1);
-      trackEvent.noteCreated(note.category?.name, !!note.location);
+      trackEvent.noteCreated(noteToSave.category?.name, !!noteToSave.location);
     } else {
       trackEvent.noteEdited();
     }
 
     if (isOnline && session) {
-      await db.queueUpdate({ type: 'SAVE', payload: note });
+      await db.queueUpdate({ type: 'SAVE', payload: noteToSave });
       await syncAndFetchInitialNotes(session);
     } else {
-      await db.queueUpdate({ type: 'SAVE', payload: note });
+      await db.queueUpdate({ type: 'SAVE', payload: noteToSave });
+    }
+
+    // Trigger appreciation on 3rd note milestone
+    if (isNew && notes.length + 1 === 3) {
+      setTimeout(() => setShowAppreciation(true), 1000);
+    }
+
+    // Success Toast on first note
+    if (isNew && notes.length === 0) {
+      setSuccessMessage('Your first note is pinned! 📍 Enjoy exploring your world!');
     }
   };
 
   const handleShareNote = async (note: Note) => {
+    const shareText = `Check out my note: "${note.title}"\n\n${note.content}`;
+    const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+
     if (navigator.share) {
       try {
         await navigator.share({
           title: note.title,
-          text: `Check out my note: "${note.title}"\n\n${note.content}`,
-          url: window.location.href,
+          text: shareText,
+          url: shareUrl,
         });
+        setSuccessMessage('Successfully shared!');
       } catch (error) {
-        console.error('Error sharing note:', error);
-        setError('Could not share note.');
+        if ((error as Error).name !== 'AbortError') {
+          console.error('Error sharing note:', error);
+          setError('Could not share note.');
+        }
       }
     } else {
-      setError('Web Share API is not available on your browser.');
+      // Fallback: Copy to clipboard
+      try {
+        await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+        setSuccessMessage('Share link copied to clipboard! 📋');
+      } catch (err) {
+        setError('Failed to copy share link.');
+      }
+    }
+  };
+
+  const handleJoinWaitlist = async () => {
+    if (!session?.user.email) return;
+    try {
+        await joinWaitlist(session.user.email);
+        setSuccessMessage("You're on the list! We'll notify you when Teams features launch. 🚀");
+    } catch (err) {
+        setError("Failed to join waitlist. Please try again later.");
     }
   };
 
@@ -494,22 +602,7 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSignIn = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin,
-          queryParams: {
-            prompt: 'select_account',
-          },
-        },
-      });
-      if (error) throw error;
-    } catch (error: any) {
-      setError(`Authentication failed: ${error.message}`);
-    }
-  };
+
 
 
 
@@ -522,7 +615,7 @@ const App: React.FC = () => {
   };
 
   const processedNotes = useMemo(() => {
-    let tempNotes = [...notes];
+    let tempNotes = [...decryptedNotes];
     tempNotes = tempNotes.filter(note => viewMode === 'archived' ? note.isArchived : !note.isArchived);
     if (activeFilter) tempNotes = tempNotes.filter(n => n.category?.id === activeFilter);
     if (searchQuery.trim() !== '') {
@@ -546,9 +639,9 @@ const App: React.FC = () => {
       }
     });
     return tempNotes;
-  }, [notes, viewMode, activeFilter, searchQuery, sortOption, location]);
+  }, [decryptedNotes, viewMode, activeFilter, searchQuery, sortOption, location]);
 
-  const activeNotesCount = useMemo(() => notes.filter(n => !n.isArchived).length, [notes]);
+  const activeNotesCount = useMemo(() => decryptedNotes.filter(n => !n.isArchived).length, [decryptedNotes]);
 
   const sidebarOffset = session ? (sidebarCollapsed ? '72px' : '260px') : '0px';
 
@@ -634,24 +727,30 @@ const App: React.FC = () => {
   // ========================
   // Auth loading
   // ========================
+  // ========================
+  // Auth loading → App Skeleton
+  // ========================
   if (isAuthLoading) {
-    return (
-      <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-[#0b1121] justify-center items-center">
-        <div className="flex flex-col items-center gap-4 animate-fade-in">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <SpinnerIcon className="w-6 h-6 text-white animate-spin" />
-          </div>
-          <span className="text-sm font-medium text-slate-500">Loading GeoNotes AI…</span>
-        </div>
-      </div>
-    );
+    return <AppSkeleton />;
   }
 
   // ========================
   // Not logged in → Landing
   // ========================
   if (!session) {
-    return <LandingPage onSignIn={handleSignIn} />;
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-white dark:bg-[#0b1121]" />}>
+        <SEO 
+          title="GeoNotes AI - Your World, Noted" 
+          description="The smartest way to pin memories and tasks to a map. Try it for free."
+        />
+        <LandingPage 
+            onSignIn={handleSignIn} 
+            onViewPrivacy={() => setShowPrivacy(true)} 
+            onJoinWaitlist={() => setError("Please sign in to join the waitlist.")} 
+        />
+      </Suspense>
+    );
   }
 
   // ========================
@@ -659,6 +758,10 @@ const App: React.FC = () => {
   // ========================
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-[#0b1121] text-slate-900 dark:text-white transition-colors duration-300 relative overflow-x-hidden">
+      <SEO 
+        title={`${totalNotesCount} Notes | GeoNotes AI Dashboard`}
+        description={`Managing ${notes.filter(n => n.location).length} pinned locations on your personal map.`}
+      />
 
       {/* Sidebar */}
       <Sidebar
@@ -673,15 +776,17 @@ const App: React.FC = () => {
         }}
         onSignOut={handleSignOut}
         subscriptionTier={subscription?.subscription.tier || 'free'}
-        notesCount={activeNotesCount}
+        notesCount={totalNotesCount}
         isMobileOpen={mobileSidebarOpen}
         onMobileClose={() => setMobileSidebarOpen(false)}
       />
 
       {/* Main content area */}
       <div
-        className="flex-1 flex flex-col min-h-screen transition-all duration-300"
-        style={{ marginLeft: window.innerWidth >= 768 ? sidebarOffset : '0px' }}
+        className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${
+          !session ? 'layout-no-sidebar' : (sidebarCollapsed ? 'layout-collapsed' : 'layout-expanded')
+        }`}
+        style={{ marginLeft: 'var(--current-sidebar-width)' }}
       >
         {/* Header */}
         <Header
@@ -722,7 +827,7 @@ const App: React.FC = () => {
               </div>
               <div className="flex items-center gap-3">
                 <div className="stat-mini">
-                  <span className="stat-value">{activeNotesCount}</span>
+                  <span className="stat-value">{totalNotesCount}</span>
                   <span className="stat-label">Notes</span>
                 </div>
                 <div className="stat-mini">
@@ -737,8 +842,20 @@ const App: React.FC = () => {
             </div>
           </div>
 
+          {showPrivacy && (
+            <div className="fixed inset-0 z-[5000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto" onClick={() => setShowPrivacy(false)}>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full p-8 max-h-[90vh] overflow-y-auto relative animate-scale-in" onClick={e => e.stopPropagation()}>
+                 <button onClick={() => setShowPrivacy(false)} className="absolute top-4 right-4 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <CloseIcon className="w-6 h-6 text-slate-400" />
+                 </button>
+                 <PrivacyPolicy onClose={() => setShowPrivacy(false)} />
+              </div>
+            </div>
+          )}
+
           {error && <ErrorToast message={error} onDismiss={() => setError(null)} />}
           {recentlyArchived && <UndoToast message="Note archived." onUndo={handleUndoArchive} />}
+          {successMessage && <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage(null)} />}
 
           {showNoteForm && (
             <Suspense fallback={<div>Loading form...</div>}>
@@ -771,6 +888,19 @@ const App: React.FC = () => {
             </div>
           )}
 
+          {showAppreciation && (
+            <Suspense fallback={null}>
+              <AppreciationModal 
+                noteCount={notes.length} 
+                onClose={() => setShowAppreciation(false)} 
+                onFeedback={() => {
+                  const inviteText = encodeURIComponent("I'm using GeoNotes AI to pin my memories to the map! 📍 Check it out: ");
+                  window.open(`https://twitter.com/intent/tweet?text=${inviteText}${window.location.origin}`);
+                }}
+              />
+            </Suspense>
+          )}
+
           {/* Map Section */}
           <div className="section-card animate-fade-in-up" style={{ animationDelay: '100ms' }}>
             <div className="section-header">
@@ -782,10 +912,30 @@ const App: React.FC = () => {
                 {notes.filter(n => n.location && !n.isArchived).length} pinned locations
               </span>
             </div>
-            <Suspense fallback={<div className="bg-slate-100 dark:bg-[#131c2e] h-[40vh] min-h-[280px] flex items-center justify-center text-slate-500 text-sm">Loading Map...</div>}>
+            <Suspense fallback={<LoadingSkeleton variant="map" className="rounded-xl h-[40vh] min-h-[300px]" />}>
               <MapView notes={processedNotes} userLocation={location} activeNoteId={activeNoteId} onMarkerClick={handleMarkerClick} theme={effectiveTheme} />
             </Suspense>
+            <div className="p-3 border-t border-slate-100 dark:border-slate-700/40 flex justify-end">
+                <button 
+                  onClick={() => setShowSettings(true)}
+                  className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-indigo-600 transition-colors"
+                >
+                  <CogIcon className="w-3.5 h-3.5" />
+                  Map Settings
+                </button>
+            </div>
           </div>
+
+          <SettingsModal 
+            isOpen={showSettings}
+            onClose={() => setShowSettings(false)}
+            accuracy={accuracy}
+            onAccuracyChange={setAccuracy}
+            encryptionEnabled={encryptionEnabled}
+            onEncryptionToggle={setEncryptionEnabled}
+            masterPassword={masterPassword}
+            onMasterPasswordChange={setMasterPassword}
+          />
 
           {/* Toolbar: Filters + Sort */}
           <div className="toolbar animate-fade-in-up" style={{ animationDelay: '200ms' }}>
@@ -840,6 +990,7 @@ const App: React.FC = () => {
               subscription?.upgradeToPro(priceId.includes('yearly') ? 'year' : 'month');
             }}
             currentPlan={subscription?.subscription.tier || 'free'}
+            onJoinWaitlist={handleJoinWaitlist}
           />
           <button
             onClick={() => setShowPricingPage(false)}

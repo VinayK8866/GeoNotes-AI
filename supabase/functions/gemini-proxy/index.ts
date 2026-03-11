@@ -43,7 +43,7 @@ serve(async (req) => {
         const { action, ...params } = await req.json();
 
         let result;
-        let model = 'gemini-1.5-flash'; // Default model (fallback)
+        let model = 'gemini-1.5-flash'; // Faster, cheaper, better for simple tasks
 
         switch (action) {
             case 'suggestLocations':
@@ -117,7 +117,7 @@ serve(async (req) => {
 
             case 'searchNotes':
                 // input: { query, notes }
-                model = 'gemini-1.5-pro'; // Use stronger model for search
+                model = 'gemini-1.5-flash'; // Strong enough for search, much faster
                 const notesContext = params.notes.map((n: any) => `Title: ${n.title}\nContent: ${n.content}\n---`).join('\n');
                 result = await callGemini(model, {
                     contents: [{
