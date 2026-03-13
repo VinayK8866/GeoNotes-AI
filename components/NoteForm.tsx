@@ -55,15 +55,16 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
       setCategoryId(noteToEdit.category?.id);
       setSelectedLocation(noteToEdit.location || null);
       setLocationSearch(noteToEdit.location?.name || '');
-    } else if (userLocation && !selectedLocation) {
+    } else if (userLocation && !selectedLocation && !locationSearch) {
         // Auto-assign current location for new notes as a default
-        setSelectedLocation({
+        const currentLoc = {
             name: 'Current Location',
             coordinates: userLocation
-        });
+        };
+        setSelectedLocation(currentLoc);
         setLocationSearch('Current Location');
     }
-  }, [noteToEdit, userLocation]);
+  }, [noteToEdit, userLocation, selectedLocation, locationSearch]);
 
   useEffect(() => {
     if (debouncedSearchTerm.trim().length > 2) {
@@ -305,24 +306,42 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
                 <div className="relative">
                   <label htmlFor="location" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Location</label>
                   <div className="relative">
-                    <MapPinIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      id="location"
-                      value={locationSearch}
-                      onChange={(e) => {
-                        setLocationSearch(e.target.value);
-                        if (selectedLocation) setSelectedLocation(null);
-                      }}
-                      placeholder="Search places..."
-                      className="w-full bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-3 border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 pl-10 transition-all"
-                    />
-                    {isSearching && <SpinnerIcon className="w-5 h-5 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 animate-spin" />}
-                    {selectedLocation && (
-                      <button type="button" onClick={handleClearLocation} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                        <CloseIcon className="w-5 h-5" />
-                      </button>
-                    )}
+                    <div className="flex gap-2">
+                        <MapPinIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                        type="text"
+                        id="location"
+                        value={locationSearch}
+                        onChange={(e) => {
+                            setLocationSearch(e.target.value);
+                            if (selectedLocation) setSelectedLocation(null);
+                        }}
+                        placeholder="Search places..."
+                        className="w-full bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-3 border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 pl-10 transition-all font-medium"
+                        />
+                        {userLocation && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                            setSelectedLocation({ name: 'Current Location', coordinates: userLocation });
+                            setLocationSearch('Current Location');
+                            }}
+                            title="Use current location"
+                            className="flex-shrink-0 flex items-center justify-center w-12 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
+                        >
+                            <div className="relative">
+                                <MapPinIcon className="w-5 h-5" />
+                                <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-indigo-500 border-2 border-white dark:border-slate-800 rounded-full animate-pulse" />
+                            </div>
+                        </button>
+                        )}
+                        {isSearching && <SpinnerIcon className="w-5 h-5 text-gray-400 absolute right-16 top-1/2 -translate-y-1/2 animate-spin" />}
+                        {selectedLocation && (
+                        <button type="button" onClick={handleClearLocation} className="absolute right-16 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                            <CloseIcon className="w-5 h-5" />
+                        </button>
+                        )}
+                    </div>
                   </div>
 
                   {locationSuggestions.length > 0 && (

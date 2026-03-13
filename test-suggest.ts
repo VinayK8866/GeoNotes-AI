@@ -1,6 +1,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const API_KEY = "AIzaSyAkJWgol08sXElI_qoubwddwHKcMh020E4";
+const API_KEY = process.env.VITE_GEMINI_API_KEY;
+if (!API_KEY) {
+    console.error("VITE_GEMINI_API_KEY is missing in your environment.");
+    process.exit(1);
+}
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 function cleanJson(text: string): string {

@@ -15,16 +15,16 @@ interface HeaderProps {
   isAiSearching: boolean;
   theme: Theme;
   setTheme: (theme: Theme) => void;
-  onViewPricing: () => void;
   subscriptionTier?: 'free' | 'pro' | 'teams';
   onToggleMobileSidebar?: () => void;
+  lastSynced?: Date | null;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   session, onSignIn, onSignOut, isOnline, isSyncing,
   searchQuery, onSearchChange, onAiSearch, isAiSearching,
   theme, setTheme, onViewPricing, subscriptionTier = 'free',
-  onToggleMobileSidebar
+  onToggleMobileSidebar, lastSynced
 }) => {
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -68,6 +68,11 @@ export const Header: React.FC<HeaderProps> = ({
               {isSyncing && (
                 <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 animate-pulse">
                   <SpinnerIcon className="w-3 h-3 animate-spin" /> Syncing
+                </span>
+              )}
+              {!isSyncing && lastSynced && (
+                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-slate-400">
+                  Synced {lastSynced.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               )}
             </div>

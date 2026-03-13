@@ -1,7 +1,7 @@
 
 
 
-import React, { useState, useEffect, useCallback, lazy, Suspense, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense, useRef, useMemo, startTransition } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { Note, Category, SortOption } from './types';
 import { useGeolocation } from './hooks/useGeolocation';
@@ -68,6 +68,7 @@ const App: React.FC = () => {
   const [page, setPage] = useState(1);
   const [hasMoreOnlineNotes, setHasMoreOnlineNotes] = useState(true);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [sentNotifications, setSentNotifications] = useState<Set<string>>(() => {
     if (typeof localStorage === 'undefined') return new Set();
@@ -118,7 +119,8 @@ const App: React.FC = () => {
   const { location, error: locationError, requestLocation } = useGeolocation({
     enableHighAccuracy: accuracy === 'high',
     timeout: 20000,
-    maximumAge: 60000
+    maximumAge: 60000,
+    autoEnable: !!session
   });
   useEffect(() => {
     localStorage.setItem('location_accuracy', accuracy);
@@ -254,6 +256,7 @@ const App: React.FC = () => {
         setNotes(onlineNotes);
         setPage(1);
         setHasMoreOnlineNotes(onlineNotes.length === NOTES_PER_PAGE);
+        setLastSynced(new Date());
       }
     } catch (err: any) {
       setError(`Could not sync with server. Reason: ${err.message}. Showing local data.`);
@@ -581,7 +584,9 @@ const App: React.FC = () => {
 
     if (subscription && !subscription.canUseAISearch()) {
       setUpgradeLimitType('aiSearches');
-      setShowUpgradeModal(true);
+      startTransition(() => {
+        setShowUpgradeModal(true);
+      });
       return;
     }
 
@@ -645,6 +650,34 @@ const App: React.FC = () => {
 
   const sidebarOffset = session ? (sidebarCollapsed ? '72px' : '260px') : '0px';
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    const name = session?.user?.user_metadata?.full_name ? `, ${session.user.user_metadata.full_name.split(' ')[0]}` : '';
+    
+    if (hour < 12) return `Good morning${name} 🌅`;
+    if (hour < 17) return `Good afternoon${name} ☀️`;
+    return `Good evening${name} 🌙`;
+  };
+
+  const getSmartInsight = () => {
+    if (notes.length === 0) return "Tip: Type a location in your note to pin it to the map automatically!";
+    
+    const pinnedCount = notes.filter(n => n.location).length;
+    if (pinnedCount === 0) return "Tip: Add a location to your notes to see them on the map!";
+    
+    if (location) {
+        const nearbyCount = notes.filter(n => {
+            if (!n.location) return false;
+            const dist = getDistance(location, n.location.coordinates);
+            return dist <= REMINDER_RADIUS_METERS;
+        }).length;
+        
+        if (nearbyCount > 0) return `You have ${nearbyCount} note${nearbyCount > 1 ? 's' : ''} pinned right here in this area!`;
+    }
+    
+    return "Tip: You can use AI to search across all your memories instantly.";
+  };
+
   const renderContent = () => {
     if (isSyncing && notes.length === 0) {
       return (
@@ -657,7 +690,12 @@ const App: React.FC = () => {
     if (processedNotes.length === 0) {
       return (
         <EmptyState
-          onAddNote={() => { setEditingNote(null); setShowNoteForm(true); }}
+          onAddNote={() => { 
+            setEditingNote(null); 
+            startTransition(() => {
+              setShowNoteForm(true); 
+            });
+          }}
           viewMode={viewMode}
           isFiltered={!!activeFilter || searchQuery.trim() !== ''}
         />
@@ -679,7 +717,12 @@ const App: React.FC = () => {
               onArchive={() => handleArchiveNote(note)}
               onUnarchive={() => handleUnarchiveNote(note)}
               onDeletePermanently={() => handleDeleteNotePermanently(note.id)}
-              onEdit={(noteToEdit) => { setEditingNote(noteToEdit); setShowNoteForm(true); }}
+              onEdit={(noteToEdit) => {
+                setEditingNote(noteToEdit);
+                startTransition(() => {
+                  setShowNoteForm(true);
+                });
+              }}
               onShare={() => handleShareNote(note)}
               isArchivedView={viewMode === 'archived'}
               isActive={note.id === activeNoteId}
@@ -746,7 +789,11 @@ const App: React.FC = () => {
         />
         <LandingPage 
             onSignIn={handleSignIn} 
-            onViewPrivacy={() => setShowPrivacy(true)} 
+            onViewPrivacy={() => {
+              startTransition(() => {
+                setShowPrivacy(true);
+              });
+            }} 
             onJoinWaitlist={() => setError("Please sign in to join the waitlist.")} 
         />
       </Suspense>
@@ -772,7 +819,9 @@ const App: React.FC = () => {
         onViewModeChange={setViewMode}
         onViewPricing={() => {
           trackEvent.pricingPageViewed();
-          setShowPricingPage(true);
+          startTransition(() => {
+            setShowPricingPage(true);
+          });
         }}
         onSignOut={handleSignOut}
         subscriptionTier={subscription?.subscription.tier || 'free'}
@@ -803,10 +852,13 @@ const App: React.FC = () => {
           setTheme={setTheme}
           onViewPricing={() => {
             trackEvent.pricingPageViewed();
-            setShowPricingPage(true);
+            startTransition(() => {
+              setShowPricingPage(true);
+            });
           }}
           subscriptionTier={subscription?.subscription.tier || 'free'}
           onToggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+          lastSynced={lastSynced}
         />
 
         {notificationPermission !== 'granted' && (
@@ -820,10 +872,12 @@ const App: React.FC = () => {
           <div className="welcome-strip animate-fade-in-up">
             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-lg sm:text-xl font-bold mb-1">
-                  Welcome back{session?.user?.user_metadata?.full_name ? `, ${session.user.user_metadata.full_name.split(' ')[0]}` : ''} 👋
+                <h1 className="text-xl sm:text-2xl font-black mb-1.5 tracking-tight">
+                  {getGreeting()}
                 </h1>
-                <p className="text-sm opacity-80">Here's what's happening with your notes today.</p>
+                <p className="text-sm font-medium opacity-90">
+                  {getSmartInsight()}
+                </p>
               </div>
               <div className="flex items-center gap-3">
                 <div className="stat-mini">
@@ -862,7 +916,12 @@ const App: React.FC = () => {
               <NoteForm
                 noteToEdit={editingNote}
                 onSave={handleSaveNote}
-                onCancel={() => { setShowNoteForm(false); setEditingNote(null); }}
+                onCancel={() => { 
+                  startTransition(() => {
+                    setShowNoteForm(false); 
+                    setEditingNote(null); 
+                  });
+                }}
                 categories={DEFAULT_CATEGORIES}
                 userLocation={location}
                 onError={setError}
@@ -917,7 +976,11 @@ const App: React.FC = () => {
             </Suspense>
             <div className="p-3 border-t border-slate-100 dark:border-slate-700/40 flex justify-end">
                 <button 
-                  onClick={() => setShowSettings(true)}
+                  onClick={() => {
+                    startTransition(() => {
+                      setShowSettings(true);
+                    });
+                  }}
                   className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-indigo-600 transition-colors"
                 >
                   <CogIcon className="w-3.5 h-3.5" />
@@ -1037,7 +1100,12 @@ const App: React.FC = () => {
 
       {/* Floating Action Button */}
       <button
-        onClick={() => { setEditingNote(null); setShowNoteForm(true); }}
+        onClick={() => {
+          setEditingNote(null);
+          startTransition(() => {
+            setShowNoteForm(true);
+          });
+        }}
         className="fixed bottom-8 right-8 btn-gradient rounded-xl p-4 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all z-50 group"
         aria-label="Add new note"
       >

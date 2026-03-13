@@ -16,14 +16,17 @@ interface UserProperties {
 class AnalyticsService {
     private posthog: any = null;
     private isInitialized = false;
+    private isInitializing = false;
     private eventQueue: AnalyticsEvent[] = [];
 
     /**
      * Initialize PostHog with API key
      */
     async initialize(apiKey?: string, host?: string) {
-        // Skip if already initialized
-        if (this.isInitialized) return;
+        // Skip if already initialized or in progress
+        if (this.isInitialized || this.isInitializing) return;
+
+        this.isInitializing = true;
 
         // Check for PostHog configuration
         const key = apiKey || import.meta.env.VITE_POSTHOG_API_KEY;

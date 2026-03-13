@@ -42,27 +42,35 @@ function cleanJson(text: string): string {
     return jsonString;
 }
 
-// Nominatim Geocoding Helper
-async function geocodeWithNominatim(query: string): Promise<LocationSuggestion[]> {
+// Photon Geocoding Helper (Faster than Nominatim)
+async function geocodeWithPhoton(query: string, userLocation: Coordinates | null): Promise<LocationSuggestion[]> {
     try {
-        const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`;
-        const response = await fetch(url, {
-            headers: { 'User-Agent': 'GeoNotesAI/1.0' }
-        });
+        let url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`;
+        if (userLocation) {
+            url += `&lat=${userLocation.latitude}&lon=${userLocation.longitude}`;
+        }
+        
+        const response = await fetch(url);
         if (!response.ok) return [];
 
         const data = await response.json();
-        return data.map((item: any) => ({
-            name: item.display_name.split(',')[0],
-            address: item.display_name,
-            coordinates: {
-                latitude: parseFloat(item.lat),
-                longitude: parseFloat(item.lon)
-            },
-            placeType: item.type
-        }));
+        return data.features.map((feature: any) => {
+            const props = feature.properties;
+            const name = props.name || props.street || props.city || "Unknown Place";
+            const addressParts = [props.street, props.housenumber, props.postcode, props.city, props.country].filter(Boolean);
+            
+            return {
+                name: name,
+                address: addressParts.join(', ') || props.state || props.country,
+                coordinates: {
+                    latitude: feature.geometry.coordinates[1],
+                    longitude: feature.geometry.coordinates[0]
+                },
+                placeType: props.osm_value || props.type
+            };
+        });
     } catch (error) {
-        console.error("Nominatim error:", error);
+        console.error("Photon error:", error);
         return [];
     }
 }
@@ -76,11 +84,11 @@ export const suggestLocations = async (query: string, userLocation: Coordinates 
 
     if (locationCache.has(cacheKey)) return locationCache.get(cacheKey)!;
 
-    // 1. Try Nominatim first (Fastest)
-    const nominatimResults = await geocodeWithNominatim(query);
-    if (nominatimResults.length > 0) {
-        locationCache.set(cacheKey, nominatimResults);
-        return nominatimResults;
+    // 1. Try Photon first (Ultra-fast, optimized for search)
+    const photonResults = await geocodeWithPhoton(query, userLocation);
+    if (photonResults.length > 0) {
+        locationCache.set(cacheKey, photonResults);
+        return photonResults;
     }
 
     // 2. Fallback to Gemini if Nominatim fails

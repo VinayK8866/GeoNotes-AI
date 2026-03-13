@@ -5,11 +5,11 @@ import path from 'path';
 // Load env
 const envPath = path.resolve(process.cwd(), '.env.local');
 const envContent = fs.readFileSync(envPath, 'utf-8');
-const apiKeyMatch = envContent.match(/GEMINI_API_KEY=(.*)/);
+const apiKeyMatch = envContent.match(/VITE_GEMINI_API_KEY=(.*)/);
 if (apiKeyMatch) {
-    process.env.API_KEY = apiKeyMatch[1];
+    process.env.VITE_GEMINI_API_KEY = apiKeyMatch[1];
 } else {
-    console.error("Could not find GEMINI_API_KEY in .env.local");
+    console.error("Could not find VITE_GEMINI_API_KEY in .env.local");
     process.exit(1);
 }
 

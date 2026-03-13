@@ -2,7 +2,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Coordinates } from '../types';
 
-export const useGeolocation = (options?: PositionOptions) => {
+interface GeolocationOptions extends PositionOptions {
+  autoEnable?: boolean;
+}
+
+export const useGeolocation = (options?: GeolocationOptions) => {
   const [location, setLocation] = useState<Coordinates | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(false);
@@ -57,6 +61,12 @@ export const useGeolocation = (options?: PositionOptions) => {
       );
     });
   }, [handleSuccess, handleError, options?.enableHighAccuracy, options?.timeout]);
+
+  useEffect(() => {
+    if (options?.autoEnable && !enabled) {
+        setEnabled(true);
+    }
+  }, [options?.autoEnable, enabled]);
 
   useEffect(() => {
     if (!enabled || typeof navigator === 'undefined' || !navigator.geolocation) return;
