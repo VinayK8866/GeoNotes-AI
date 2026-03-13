@@ -1,4 +1,4 @@
-const CACHE_NAME = 'geonotes-ai-cache-v3';
+const CACHE_NAME = 'geonotes-ai-cache-v4';
 const APP_SHELL_URLS = [
     '/',
     '/index.html',
