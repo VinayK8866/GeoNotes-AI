@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Note, Coordinates } from '../types';
@@ -41,19 +41,6 @@ const noteIcon = (color = 'text-gray-400', isActive = false) => {
     iconAnchor: [16, 32],
     popupAnchor: [0, -32]
   })
-};
- 
-const getCategoryHex = (colorClass: string | undefined): string => {
-  if (!colorClass) return '#818cf8'; // indigo-400
-  const color = colorClass.toLowerCase();
-  if (color.includes('blue')) return '#3b82f6';
-  if (color.includes('green')) return '#22c55e';
-  if (color.includes('yellow')) return '#f59e0b';
-  if (color.includes('purple')) return '#a855f7';
-  if (color.includes('red')) return '#ef4444';
-  if (color.includes('pink')) return '#ec4899';
-  if (color.includes('indigo')) return '#6366f1';
-  return '#818cf8';
 };
 
 const mapUrls = {
@@ -127,21 +114,6 @@ const MapView: React.FC<MapViewProps> = ({ notes, userLocation, activeNoteId, on
             </Marker>
           )
         })}
-
-        {notesWithLocation.map(note => (
-          <Circle
-            key={`circle-${note.id} `}
-            center={[note.location.coordinates.latitude, note.location.coordinates.longitude]}
-            radius={note.reminderRadius || 1000}
-            pathOptions={{
-              color: getCategoryHex(note.category?.color),
-              fillColor: getCategoryHex(note.category?.color),
-              fillOpacity: note.id === activeNoteId ? 0.3 : 0.1,
-              weight: note.id === activeNoteId ? 2 : 1,
-              dashArray: note.id === activeNoteId ? '' : '5, 5'
-            }}
-          />
-        ))}
       </MapContainer>
     </div>
   );

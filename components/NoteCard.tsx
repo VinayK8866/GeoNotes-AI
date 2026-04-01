@@ -49,7 +49,7 @@ export const NoteCard = forwardRef<HTMLDivElement, NoteCardProps>(({
   isArchivedView, isActive, onMouseEnter, onMouseLeave
 }, ref) => {
   const distance = note.location && userLocation ? getDistance(note.location.coordinates, userLocation) : null;
-  const isNearby = distance !== null && distance <= (note.reminderRadius || REMINDER_RADIUS_METERS);
+  const isNearby = distance !== null && distance <= REMINDER_RADIUS_METERS;
   const stripeColor = note.category ? (CATEGORY_COLORS[note.category.color] || '#6366f1') : undefined;
 
   return (
@@ -113,11 +113,6 @@ export const NoteCard = forwardRef<HTMLDivElement, NoteCardProps>(({
             <span className="flex items-center gap-0.5 truncate max-w-[100px]" title={note.location.name}>
               <MapPinIcon className="w-3 h-3 flex-shrink-0" />
               <span className="truncate">{note.location.name}</span>
-              {note.reminderRadius && note.reminderRadius !== 1000 && (
-                <span className="ml-1 text-[9px] px-1 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-medium">
-                  {note.reminderRadius >= 1000 ? `${note.reminderRadius/1000}km` : `${note.reminderRadius}m`}
-                </span>
-              )}
             </span>
           )}
         </div>

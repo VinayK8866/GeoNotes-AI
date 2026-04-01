@@ -16,11 +16,9 @@ import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { LocationAccuracy } from './types';
 import * as cryptoUtils from './utils/crypto';
 import { joinWaitlist } from './services/waitlistService';
-import { Capacitor } from '@capacitor/core';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
-import { MobileBottomNav, MobileTab } from './components/MobileBottomNav';
 import { NoteCard } from './components/NoteCard';
 import { SuccessToast } from './components/SuccessToast';
 import { CategoryFilter } from './components/CategoryFilter';
@@ -28,7 +26,6 @@ import { UndoToast } from './components/UndoToast';
 import { ErrorToast } from './components/ErrorToast';
 import { NotificationPermissionBanner } from './components/NotificationPermissionBanner';
 import { SEO } from './components/SEO';
-import { MobileAuth, MobileSplash } from './components/MobileAuth';
 import { PlusIcon, SpinnerIcon, CloseIcon, AiIcon, ArrowsUpDownIcon, LocationPinIcon, Bars3Icon, CogIcon } from './components/Icons';
 import { searchNotesWithAi } from './services/geminiService';
 import { analytics, trackEvent } from './services/analyticsService';
@@ -71,8 +68,7 @@ const App: React.FC = () => {
   const [page, setPage] = useState(1);
   const [hasMoreOnlineNotes, setHasMoreOnlineNotes] = useState(true);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [lastSynced, setLastSynced] = useState<Date | null>(new Date());
-  const [activeMobileTab, setActiveMobileTab] = useState<MobileTab>('notes');
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [sentNotifications, setSentNotifications] = useState<Set<string>>(() => {
     if (typeof localStorage === 'undefined') return new Set();
@@ -119,40 +115,6 @@ const App: React.FC = () => {
     return localStorage.getItem('sidebar_collapsed') === 'true';
   });
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-
-  // Native Background Geolocation Initialization
-  useEffect(() => {
-    if (Capacitor.isNativePlatform()) {
-      const startBackgroundTracking = async () => {
-        try {
-          const { BackgroundGeolocation } = await import('@capacitor-community/background-geolocation');
-          const watcherId = await BackgroundGeolocation.addWatcher(
-            {
-              backgroundTitle: "GeoNotes Active",
-              backgroundMessage: "Tracking for location reminders",
-              requestPermissions: true,
-              stale: false,
-              distanceFilter: 10 // Update every 10 meters
-            },
-            (location: any, error: any) => {
-              if (error) {
-                console.error('BG Geo Error:', error);
-                return;
-              }
-              if (location) {
-                // Background update logic
-                console.log('BG update:', location);
-              }
-            }
-          );
-          return () => BackgroundGeolocation.removeWatcher({ id: watcherId });
-        } catch (e) {
-          console.error('Failed to init BG Geolocation:', e);
-        }
-      };
-      startBackgroundTracking();
-    }
-  }, []);
 
   const { location, error: locationError, requestLocation } = useGeolocation({
     enableHighAccuracy: accuracy === 'high',
@@ -434,7 +396,7 @@ const App: React.FC = () => {
       for (const note of notesToCheck) {
         if (!note.location) continue;
         const distance = getDistance(location, note.location.coordinates);
-        if (distance <= (note.reminderRadius || REMINDER_RADIUS_METERS) && !sentNotifications.has(note.id)) {
+        if (distance <= REMINDER_RADIUS_METERS && !sentNotifications.has(note.id)) {
           navigator.serviceWorker.controller.postMessage({
             type: 'SHOW_NOTIFICATION',
             payload: {
@@ -707,7 +669,7 @@ const App: React.FC = () => {
         const nearbyCount = notes.filter(n => {
             if (!n.location) return false;
             const dist = getDistance(location, n.location.coordinates);
-            return dist <= (n.reminderRadius || REMINDER_RADIUS_METERS);
+            return dist <= REMINDER_RADIUS_METERS;
         }).length;
         
         if (nearbyCount > 0) return `You have ${nearbyCount} note${nearbyCount > 1 ? 's' : ''} pinned right here in this area!`;
@@ -809,26 +771,16 @@ const App: React.FC = () => {
   // Auth loading
   // ========================
   // ========================
-  // Auth loading → Native Splash or Skeleton
+  // Auth loading → App Skeleton
+  // ========================
   if (isAuthLoading) {
-    if (Capacitor.isNativePlatform()) {
-      return <MobileSplash />;
-    }
     return <AppSkeleton />;
   }
 
   // ========================
-  // Not logged in → Mobile Auth or Landing Page
+  // Not logged in → Landing
   // ========================
   if (!session) {
-    if (Capacitor.isNativePlatform()) {
-      return (
-        <MobileAuth 
-          onSignIn={handleSignIn} 
-          isLoading={false}
-        />
-      );
-    }
     return (
       <Suspense fallback={<div className="min-h-screen bg-white dark:bg-[#0b1121]" />}>
         <SEO 
@@ -883,7 +835,7 @@ const App: React.FC = () => {
         className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${
           !session ? 'layout-no-sidebar' : (sidebarCollapsed ? 'layout-collapsed' : 'layout-expanded')
         }`}
-        style={{ marginLeft: 'var(--current-sidebar-width)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        style={{ marginLeft: 'var(--current-sidebar-width)' }}
       >
         {/* Header */}
         <Header
@@ -1008,97 +960,34 @@ const App: React.FC = () => {
             </Suspense>
           )}
 
-          {/* Map Section - Mobile Conditional */}
-          {(activeMobileTab === 'map' || window.innerWidth >= 768) && (
-            <div className="section-card animate-fade-in-up" style={{ animationDelay: '100ms' }}>
-              <div className="section-header">
-                <div className="section-icon bg-blue-100 dark:bg-blue-900/30">
-                  <LocationPinIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                </div>
-                <span>Map View</span>
-                <span className="ml-auto text-[11px] font-medium text-slate-500 dark:text-slate-500">
-                  {notes.filter(n => n.location && !n.isArchived).length} pinned locations
-                </span>
+          {/* Map Section */}
+          <div className="section-card animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+            <div className="section-header">
+              <div className="section-icon bg-blue-100 dark:bg-blue-900/30">
+                <LocationPinIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               </div>
-              <Suspense fallback={<LoadingSkeleton variant="map" className="rounded-xl h-[40vh] min-h-[300px]" />}>
-                <MapView notes={processedNotes} userLocation={location} activeNoteId={activeNoteId} onMarkerClick={handleMarkerClick} theme={effectiveTheme} />
-              </Suspense>
-              <div className="p-3 border-t border-slate-100 dark:border-slate-700/40 flex justify-end">
-                  <button 
-                    onClick={() => {
-                      startTransition(() => {
-                        setShowSettings(true);
-                      });
-                    }}
-                    className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-indigo-600 transition-colors"
-                  >
-                    <CogIcon className="w-3.5 h-3.5" />
-                    Map Settings
-                  </button>
-              </div>
+              <span>Map View</span>
+              <span className="ml-auto text-[11px] font-medium text-slate-500 dark:text-slate-500">
+                {notes.filter(n => n.location && !n.isArchived).length} pinned locations
+              </span>
             </div>
-          )}
-
-          {/* Settings Section - Mobile Conditional */}
-          {activeMobileTab === 'settings' && window.innerWidth < 768 && (
-            <div className="section-card p-6 space-y-6 animate-fade-in">
-                <h2 className="text-lg font-bold">App Settings</h2>
-                {/* Simplified settings for mobile tab */}
-                <div className="space-y-4">
-                   <button 
-                    onClick={() => { setShowPricingPage(true); setActiveMobileTab('notes'); }}
-                    className="w-full p-4 flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/20 rounded-xl text-indigo-700 dark:text-indigo-300 font-bold"
-                   >
-                     <span>My Plan: {subscription?.subscription.tier || 'Free'}</span>
-                     <span className="text-xs underline">Upgrade</span>
-                   </button>
-                   <button onClick={handleSignOut} className="w-full p-4 text-left border border-red-200 text-red-600 rounded-xl">Sign Out</button>
-                </div>
+            <Suspense fallback={<LoadingSkeleton variant="map" className="rounded-xl h-[40vh] min-h-[300px]" />}>
+              <MapView notes={processedNotes} userLocation={location} activeNoteId={activeNoteId} onMarkerClick={handleMarkerClick} theme={effectiveTheme} />
+            </Suspense>
+            <div className="p-3 border-t border-slate-100 dark:border-slate-700/40 flex justify-end">
+                <button 
+                  onClick={() => {
+                    startTransition(() => {
+                      setShowSettings(true);
+                    });
+                  }}
+                  className="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-indigo-600 transition-colors"
+                >
+                  <CogIcon className="w-3.5 h-3.5" />
+                  Map Settings
+                </button>
             </div>
-          )}
-
-          {/* Dashboard Content - Grid or Tabs */}
-          {(activeMobileTab === 'notes' || window.innerWidth >= 768) && (
-            <div className="space-y-6">
-              {/* Toolbar: Filters + Sort */}
-              <div className="toolbar animate-fade-in-up" style={{ animationDelay: '200ms' }}>
-                {/* View Mode Label */}
-                <div className="flex items-center gap-2.5">
-                  <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                    {viewMode === 'active' ? 'My Notes' : 'Archived'}
-                  </h2>
-                  {processedNotes.length > 0 && (
-                    <span className="badge badge-primary">{processedNotes.length}</span>
-                  )}
-                </div>
-
-                <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
-
-                {/* Category Filter */}
-                <CategoryFilter categories={DEFAULT_CATEGORIES} activeFilter={activeFilter} onSelectFilter={setActiveFilter} />
-
-                {/* Sort Dropdown */}
-                <div className="relative ml-auto">
-                  <select
-                    value={sortOption}
-                    onChange={e => setSortOption(e.target.value as SortOption)}
-                    className="text-xs font-medium bg-white dark:bg-[#131c2e] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-[#1e2d45] rounded-lg py-2 pl-3 pr-9 appearance-none shadow-xs hover:border-slate-300 dark:hover:border-[#2a3f5f] focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition-all cursor-pointer"
-                    aria-label="Sort notes"
-                  >
-                    <option value="created_at_desc">Newest first</option>
-                    <option value="created_at_asc">Oldest first</option>
-                    <option value="title_asc">Title: A → Z</option>
-                    <option value="title_desc">Title: Z → A</option>
-                    {location && <option value="distance_asc">Nearest</option>}
-                  </select>
-                  <ArrowsUpDownIcon className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-              </div>
-
-              {/* Content */}
-              {renderContent()}
-            </div>
-          )}
+          </div>
 
           <SettingsModal 
             isOpen={showSettings}
@@ -1110,20 +999,45 @@ const App: React.FC = () => {
             masterPassword={masterPassword}
             onMasterPasswordChange={setMasterPassword}
           />
-        </main>
 
-        {session && (
-          <MobileBottomNav 
-            activeTab={activeMobileTab} 
-            onTabChange={setActiveMobileTab} 
-            onAddClick={() => {
-              startTransition(() => {
-                setShowNoteForm(true);
-                setEditingNote(null);
-              });
-            }}
-          />
-        )}
+          {/* Toolbar: Filters + Sort */}
+          <div className="toolbar animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+            {/* View Mode Label */}
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                {viewMode === 'active' ? 'My Notes' : 'Archived'}
+              </h2>
+              {processedNotes.length > 0 && (
+                <span className="badge badge-primary">{processedNotes.length}</span>
+              )}
+            </div>
+
+            <div className="h-5 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
+
+            {/* Category Filter */}
+            <CategoryFilter categories={DEFAULT_CATEGORIES} activeFilter={activeFilter} onSelectFilter={setActiveFilter} />
+
+            {/* Sort Dropdown */}
+            <div className="relative ml-auto">
+              <select
+                value={sortOption}
+                onChange={e => setSortOption(e.target.value as SortOption)}
+                className="text-xs font-medium bg-white dark:bg-[#131c2e] text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-[#1e2d45] rounded-lg py-2 pl-3 pr-9 appearance-none shadow-xs hover:border-slate-300 dark:hover:border-[#2a3f5f] focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition-all cursor-pointer"
+                aria-label="Sort notes"
+              >
+                <option value="created_at_desc">Newest first</option>
+                <option value="created_at_asc">Oldest first</option>
+                <option value="title_asc">Title: A → Z</option>
+                <option value="title_desc">Title: Z → A</option>
+                {location && <option value="distance_asc">Nearest</option>}
+              </select>
+              <ArrowsUpDownIcon className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Content */}
+          {renderContent()}
+        </main>
       </div>
 
       {/* Pricing Page Overlay */}
@@ -1136,11 +1050,10 @@ const App: React.FC = () => {
                 return;
               }
               setShowPricingPage(false);
-              if (subscription?.upgradeToPro) {
-                subscription.upgradeToPro(priceId.includes('yearly') ? 'year' : 'month');
-              }
+              subscription?.upgradeToPro(priceId.includes('yearly') ? 'year' : 'month');
             }}
             currentPlan={subscription?.subscription.tier || 'free'}
+            onJoinWaitlist={handleJoinWaitlist}
           />
           <button
             onClick={() => setShowPricingPage(false)}
