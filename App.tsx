@@ -28,6 +28,7 @@ import { UndoToast } from './components/UndoToast';
 import { ErrorToast } from './components/ErrorToast';
 import { NotificationPermissionBanner } from './components/NotificationPermissionBanner';
 import { SEO } from './components/SEO';
+import { MobileAuth, MobileSplash } from './components/MobileAuth';
 import { PlusIcon, SpinnerIcon, CloseIcon, AiIcon, ArrowsUpDownIcon, LocationPinIcon, Bars3Icon, CogIcon } from './components/Icons';
 import { searchNotesWithAi } from './services/geminiService';
 import { analytics, trackEvent } from './services/analyticsService';
@@ -808,16 +809,26 @@ const App: React.FC = () => {
   // Auth loading
   // ========================
   // ========================
-  // Auth loading → App Skeleton
-  // ========================
+  // Auth loading → Native Splash or Skeleton
   if (isAuthLoading) {
+    if (Capacitor.isNativePlatform()) {
+      return <MobileSplash />;
+    }
     return <AppSkeleton />;
   }
 
   // ========================
-  // Not logged in → Landing
+  // Not logged in → Mobile Auth or Landing Page
   // ========================
   if (!session) {
+    if (Capacitor.isNativePlatform()) {
+      return (
+        <MobileAuth 
+          onSignIn={handleSignIn} 
+          isLoading={false}
+        />
+      );
+    }
     return (
       <Suspense fallback={<div className="min-h-screen bg-white dark:bg-[#0b1121]" />}>
         <SEO 
@@ -830,8 +841,12 @@ const App: React.FC = () => {
               startTransition(() => {
                 setShowPrivacy(true);
               });
-            }} 
-            onJoinWaitlist={() => setError("Please sign in to join the waitlist.")} 
+            }}
+            onJoinWaitlist={async (email) => {
+              await joinWaitlist(email);
+              setSuccessMessage("You've been added to the waitlist!");
+              setTimeout(() => setSuccessMessage(null), 3000);
+            }}
         />
       </Suspense>
     );
