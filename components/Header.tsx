@@ -45,9 +45,8 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 gap-4">
 
-          {/* Left: Mobile menu + Status */}
+          {/* Left: Logo + Branding */}
           <div className="flex items-center gap-3 flex-shrink-0">
-            {/* Mobile sidebar toggle */}
             {onToggleMobileSidebar && (
               <button
                 onClick={onToggleMobileSidebar}
@@ -57,9 +56,16 @@ export const Header: React.FC<HeaderProps> = ({
                 <Bars3Icon className="w-5 h-5" />
               </button>
             )}
+            
+            <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-sm">
+                   <span className="text-white font-black text-lg">G</span>
+                </div>
+                <h1 className="text-base font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">GeoNotes</h1>
+            </div>
 
             {/* Status indicators */}
-            <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2">
               {!isOnline && (
                 <span className="inline-flex items-center rounded-full bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1 text-[10px] font-semibold text-amber-700 dark:text-amber-400 ring-1 ring-inset ring-amber-400/30">
                   Offline
@@ -71,16 +77,16 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               )}
               {!isSyncing && lastSynced && (
-                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-slate-400">
+                <span className="inline-flex items-center gap-1 text-[10px] text-slate-400">
                   Synced {lastSynced.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               )}
             </div>
           </div>
 
-          {/* Center: Search */}
-          <div className="flex-1 max-w-xl">
-            <div className="relative">
+          {/* Center: Search (Hidden on Mobile, Visible on Desktop) */}
+          <div className="hidden md:flex flex-1 max-w-xl">
+            <div className="relative w-full">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <SearchIcon className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
               </div>

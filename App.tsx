@@ -910,7 +910,7 @@ const App: React.FC = () => {
             });
           }}
           subscriptionTier={subscription?.subscription.tier || 'free'}
-          onToggleMobileSidebar={window.innerWidth >= 768 ? () => setMobileSidebarOpen(!mobileSidebarOpen) : undefined}
+          onToggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
           lastSynced={lastSynced}
         />
 
@@ -920,7 +920,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <main className="flex-1 w-full overflow-y-auto custom-scrollbar">
+        <main className="flex-1 w-full md:h-auto overflow-y-auto md:overflow-y-visible custom-scrollbar">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           {/* Welcome Strip - Dashboard hero */}
           <div className="welcome-strip animate-fade-in-up">
@@ -954,33 +954,63 @@ const App: React.FC = () => {
           {recentlyArchived && <UndoToast message="Note archived." onUndo={handleUndoArchive} />}
           {successMessage && <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage(null)} />}
 
-          {/* New Bottom Sheet Form for Native Feel */}
-          <BottomDrawer 
-            isOpen={showNoteForm} 
-            onClose={() => {
-              startTransition(() => {
-                setShowNoteForm(false); 
-                setEditingNote(null); 
-              });
-            }}
-            title={editingNote ? 'Edit Note' : 'Add New Note'}
-          >
-            <Suspense fallback={<div className="p-8 flex justify-center"><SpinnerIcon className="w-8 h-8 animate-spin text-indigo-500" /></div>}>
-              <NoteForm
-                noteToEdit={editingNote}
-                onSave={handleSaveNote}
-                onCancel={() => { 
-                  startTransition(() => {
-                    setShowNoteForm(false); 
-                    setEditingNote(null); 
-                  });
-                }}
-                categories={DEFAULT_CATEGORIES}
-                userLocation={location}
-                onError={setError}
-              />
-            </Suspense>
-          </BottomDrawer>
+          {/* Mobile Bottom Drawer vs Desktop Modal */}
+          {showNoteForm && window.innerWidth < 768 ? (
+            <BottomDrawer 
+              isOpen={showNoteForm} 
+              onClose={() => {
+                startTransition(() => {
+                  setShowNoteForm(false); 
+                  setEditingNote(null); 
+                });
+              }}
+              title={editingNote ? 'Edit Note' : 'Add New Note'}
+            >
+              <Suspense fallback={<div className="p-8 flex justify-center"><SpinnerIcon className="w-8 h-8 animate-spin text-indigo-500" /></div>}>
+                <NoteForm
+                  noteToEdit={editingNote}
+                  onSave={handleSaveNote}
+                  onCancel={() => { 
+                    startTransition(() => {
+                      setShowNoteForm(false); 
+                      setEditingNote(null); 
+                    });
+                  }}
+                  categories={DEFAULT_CATEGORIES}
+                  userLocation={location}
+                  onError={setError}
+                />
+              </Suspense>
+            </BottomDrawer>
+          ) : showNoteForm && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1100] flex justify-center items-center md:p-4 animate-fade-in" onClick={() => { startTransition(() => { setShowNoteForm(false); setEditingNote(null); }); }}>
+              <div className="glass-card w-full h-full md:h-auto md:max-w-2xl md:max-h-[85vh] overflow-hidden text-slate-900 dark:text-white animate-scale-in rounded-none md:rounded-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <div className="px-6 py-4 border-b border-slate-200/60 dark:border-[#1e2d45] flex justify-between items-center bg-white dark:bg-[#131c2e]">
+                   <h2 className="text-lg font-bold">{editingNote ? 'Edit Note' : 'Add New Note'}</h2>
+                   <button onClick={() => { startTransition(() => { setShowNoteForm(false); setEditingNote(null); }); }} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                      <CloseIcon className="w-5 h-5 text-slate-400" />
+                   </button>
+                </div>
+                <div className="flex-grow overflow-y-auto custom-scrollbar">
+                  <Suspense fallback={<div className="p-12 flex justify-center"><SpinnerIcon className="w-10 h-10 animate-spin text-indigo-500" /></div>}>
+                    <NoteForm
+                      noteToEdit={editingNote}
+                      onSave={handleSaveNote}
+                      onCancel={() => { 
+                        startTransition(() => {
+                          setShowNoteForm(false); 
+                          setEditingNote(null); 
+                        });
+                      }}
+                      categories={DEFAULT_CATEGORIES}
+                      userLocation={location}
+                      onError={setError}
+                    />
+                  </Suspense>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* AI Search Result Modal */}
           {aiSearchResult && (
