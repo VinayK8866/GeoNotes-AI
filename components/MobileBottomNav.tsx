@@ -1,7 +1,18 @@
 import React from 'react';
 import { MapIcon, DocumentTextIcon, PlusIcon, AiIcon, CogIcon } from './Icons';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Capacitor } from '@capacitor/core';
+
+// Safe haptics helper that won't crash on bundling
+const triggerHaptics = async (style: 'LIGHT' | 'MEDIUM' | 'HEAVY') => {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const { Haptics, ImpactStyle } = await import('@capacitor/haptics');
+      await Haptics.impact({ style: ImpactStyle[style] });
+    } catch (e) {
+      console.warn('Haptics not available:', e);
+    }
+  }
+};
 
 export type MobileTab = 'map' | 'notes' | 'ai' | 'settings';
 
@@ -13,16 +24,12 @@ interface MobileBottomNavProps {
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChange, onAddClick }) => {
   const handleTabClick = (tab: MobileTab) => {
-    if (Capacitor.isNativePlatform()) {
-      Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
-    }
+    triggerHaptics('LIGHT');
     onTabChange(tab);
   };
 
   const handleAddClick = () => {
-    if (Capacitor.isNativePlatform()) {
-      Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {});
-    }
+    triggerHaptics('MEDIUM');
     onAddClick();
   };
 
