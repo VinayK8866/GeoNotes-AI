@@ -3,6 +3,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import * as db from '../utils/db';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
+import { App } from '@capacitor/app';
 
 export function useAuth() {
     const [session, setSession] = useState<Session | null>(null);
@@ -13,6 +16,30 @@ export function useAuth() {
     const isSignOut = useRef(false);
 
     useEffect(() => {
+        // Handle deep links for native auth
+        if (Capacitor.isNativePlatform()) {
+            App.addListener('appUrlOpen', async (data: any) => {
+                const url = new URL(data.url);
+                const hash = url.hash;
+                if (hash) {
+                    const params = new URLSearchParams(hash.substring(1));
+                    const accessToken = params.get('access_token');
+                    const refreshToken = params.get('refresh_token');
+
+                    if (accessToken && refreshToken) {
+                        const { error } = await supabase.auth.setSession({
+                            access_token: accessToken,
+                            refresh_token: refreshToken
+                        });
+                        if (!error) {
+                            // Close browser if it was opened
+                            await Browser.close();
+                        }
+                    }
+                }
+            });
+        }
+
         if (!isSupabaseConfigured) {
             setIsLoading(false);
             return;
@@ -40,10 +67,8 @@ export function useAuth() {
                 console.error('Error initializing auth:', err);
                 // Don't set global error here to avoid blocking UI, just log it
             } finally {
-                // Only turn off loading if we have a session or if we are sure we are done
-                // If no session, we still wait for the onAuthStateChange to confirm (or timeout)
-                // But typically getting the session is enough to show initial UI
-                // We'll let the listener handle the final loading state flip for absolute certainty
+                // Initial load handled
+                setIsLoading(false);
             }
         };
 
@@ -67,8 +92,6 @@ export function useAuth() {
             } else if (event === 'SIGNED_OUT') {
                 setSession(null);
                 setIsLoading(false);
-                // Cleanup local data on sign out event (if not handled by explicit sign out)
-                // This is a failsafe
                 await db.clearLocalData();
             }
 
@@ -85,16 +108,30 @@ export function useAuth() {
     const signIn = useCallback(async () => {
         try {
             setError(null);
-            const { error } = await supabase.auth.signInWithOAuth({
+            
+            // Redirect URL: different for native and web
+            const redirectTo = Capacitor.isNativePlatform() 
+                ? 'com.geonotes.ai://login' 
+                : (typeof window !== 'undefined' ? window.location.origin : '');
+
+            const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: typeof window !== 'undefined' ? window.location.origin : '',
+                    redirectTo,
+                    skipBrowserRedirect: Capacitor.isNativePlatform(), // Stay in app until custom redirect
                     queryParams: {
                         prompt: 'select_account',
                     },
                 },
             });
+
             if (error) throw error;
+
+            // On native, manually open the URL in Capacitor Browser
+            if (Capacitor.isNativePlatform() && data.url) {
+                await Browser.open({ url: data.url, windowName: '_self' });
+            }
+
         } catch (err: any) {
             setError(`Authentication failed: ${err.message}`);
             console.error('Sign in error:', err);
