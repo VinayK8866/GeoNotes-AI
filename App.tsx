@@ -29,7 +29,8 @@ import { ErrorToast } from './components/ErrorToast';
 import { NotificationPermissionBanner } from './components/NotificationPermissionBanner';
 import { SEO } from './components/SEO';
 import { MobileAuth, MobileSplash } from './components/MobileAuth';
-import { PlusIcon, SpinnerIcon, CloseIcon, AiIcon, ArrowsUpDownIcon, LocationPinIcon, Bars3Icon, CogIcon } from './components/Icons';
+import { PlusIcon, SpinnerIcon, CloseIcon, AiIcon, ArrowsUpDownIcon, LocationPinIcon, Bars3Icon, CogIcon, SearchIcon, UserCircleIcon } from './components/Icons';
+import { BottomDrawer } from './components/BottomDrawer';
 import { searchNotesWithAi } from './services/geminiService';
 import { analytics, trackEvent } from './services/analyticsService';
 import { LoadingSkeleton } from './components/LoadingSkeleton';
@@ -909,17 +910,18 @@ const App: React.FC = () => {
             });
           }}
           subscriptionTier={subscription?.subscription.tier || 'free'}
-          onToggleMobileSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+          onToggleMobileSidebar={window.innerWidth >= 768 ? () => setMobileSidebarOpen(!mobileSidebarOpen) : undefined}
           lastSynced={lastSynced}
         />
 
         {notificationPermission !== 'granted' && (
-          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <div className="w-full flex-shrink-0 px-4 pt-4">
             <NotificationPermissionBanner status={notificationPermission} onRequest={() => Notification.requestPermission().then(setNotificationPermission)} />
           </div>
         )}
 
-        <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <main className="flex-1 w-full overflow-y-auto custom-scrollbar">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           {/* Welcome Strip - Dashboard hero */}
           <div className="welcome-strip animate-fade-in-up">
             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -948,23 +950,22 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {showPrivacy && (
-            <div className="fixed inset-0 z-[5000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto" onClick={() => setShowPrivacy(false)}>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full p-8 max-h-[90vh] overflow-y-auto relative animate-scale-in" onClick={e => e.stopPropagation()}>
-                 <button onClick={() => setShowPrivacy(false)} className="absolute top-4 right-4 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                    <CloseIcon className="w-6 h-6 text-slate-400" />
-                 </button>
-                 <PrivacyPolicy onClose={() => setShowPrivacy(false)} />
-              </div>
-            </div>
-          )}
-
           {error && <ErrorToast message={error} onDismiss={() => setError(null)} />}
           {recentlyArchived && <UndoToast message="Note archived." onUndo={handleUndoArchive} />}
           {successMessage && <SuccessToast message={successMessage} onDismiss={() => setSuccessMessage(null)} />}
 
-          {showNoteForm && (
-            <Suspense fallback={<div>Loading form...</div>}>
+          {/* New Bottom Sheet Form for Native Feel */}
+          <BottomDrawer 
+            isOpen={showNoteForm} 
+            onClose={() => {
+              startTransition(() => {
+                setShowNoteForm(false); 
+                setEditingNote(null); 
+              });
+            }}
+            title={editingNote ? 'Edit Note' : 'Add New Note'}
+          >
+            <Suspense fallback={<div className="p-8 flex justify-center"><SpinnerIcon className="w-8 h-8 animate-spin text-indigo-500" /></div>}>
               <NoteForm
                 noteToEdit={editingNote}
                 onSave={handleSaveNote}
@@ -979,7 +980,7 @@ const App: React.FC = () => {
                 onError={setError}
               />
             </Suspense>
-          )}
+          </BottomDrawer>
 
           {/* AI Search Result Modal */}
           {aiSearchResult && (
@@ -1043,21 +1044,134 @@ const App: React.FC = () => {
             </div>
           )}
 
+          {/* Search Section - Mobile Tab */}
+          {activeMobileTab === 'ai' && window.innerWidth < 768 && (
+            <div className="space-y-6 animate-fade-in px-2">
+              <div className="section-card p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                   <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center text-white">
+                      <AiIcon className="w-6 h-6" />
+                   </div>
+                   <div>
+                      <h2 className="text-lg font-bold">Smart Search</h2>
+                      <p className="text-xs text-slate-500 font-medium">Search notes or ask AI</p>
+                   </div>
+                </div>
+                
+                <div className="relative pt-2">
+                   <input 
+                      type="search"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search your memories..."
+                      className="w-full bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-4 pr-12 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-indigo-500/50 text-base"
+                   />
+                   <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                      <SearchIcon className="w-5 h-5 text-slate-400" />
+                   </div>
+                </div>
+
+                <div className="pt-2">
+                   <button 
+                      onClick={handleAiSearch}
+                      disabled={isAiSearching || !searchQuery.trim()}
+                      className="w-full btn-gradient py-4 flex items-center justify-center gap-2 text-base shadow-indigo-500/30"
+                   >
+                      {isAiSearching ? <SpinnerIcon className="w-5 h-5 animate-spin" /> : <AiIcon className="w-5 h-5" />}
+                      {isAiSearching ? 'Generating...' : 'Ask AI'}
+                   </button>
+                   <p className="text-[10px] text-center text-slate-400 mt-3 font-medium uppercase tracking-widest">
+                      Powered by Gemini Pro
+                   </p>
+                </div>
+              </div>
+              
+              {/* Optional: Show recent searches or search results immediately */}
+              {searchQuery.trim() !== '' && processedNotes.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider ml-2">Direct Matches</h3>
+                  <div className="grid grid-cols-1 gap-4">
+                    {processedNotes.slice(0, 3).map(note => (
+                      <NoteCard 
+                        key={note.id} 
+                        note={note} 
+                        userLocation={location}
+                        onArchive={() => handleArchiveNote(note)}
+                        onUnarchive={() => handleUnarchiveNote(note)}
+                        onDeletePermanently={() => handleDeleteNotePermanently(note.id)}
+                        onEdit={(n) => { setEditingNote(n); setShowNoteForm(true); }}
+                        onShare={() => handleShareNote(note)}
+                        isArchivedView={false}
+                        isActive={false}
+                        onMouseEnter={() => {}}
+                        onMouseLeave={() => {}}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Settings Section - Mobile Conditional */}
           {activeMobileTab === 'settings' && window.innerWidth < 768 && (
-            <div className="section-card p-6 space-y-6 animate-fade-in">
-                <h2 className="text-lg font-bold">App Settings</h2>
-                {/* Simplified settings for mobile tab */}
-                <div className="space-y-4">
-                   <button 
-                    onClick={() => { setShowPricingPage(true); setActiveMobileTab('notes'); }}
-                    className="w-full p-4 flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/20 rounded-xl text-indigo-700 dark:text-indigo-300 font-bold"
-                   >
-                     <span>My Plan: {subscription?.subscription.tier || 'Free'}</span>
-                     <span className="text-xs underline">Upgrade</span>
-                   </button>
-                   <button onClick={handleSignOut} className="w-full p-4 text-left border border-red-200 text-red-600 rounded-xl">Sign Out</button>
+            <div className="space-y-6 animate-fade-in px-2">
+              <div className="section-card p-6 overflow-hidden">
+                <div className="flex items-center gap-4 mb-6">
+                    {session?.user.user_metadata?.avatar_url ? (
+                      <img className="h-14 w-14 rounded-2xl object-cover ring-4 ring-indigo-50 dark:ring-indigo-900/20" src={session.user.user_metadata.avatar_url} alt="" />
+                    ) : (
+                      <div className="h-14 w-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                        <UserCircleIcon className="h-8 w-8 text-slate-400" />
+                      </div>
+                    )}
+                    <div>
+                       <h2 className="text-lg font-bold truncate max-w-[200px]">{session?.user.email?.split('@')[0]}</h2>
+                       <p className="text-xs text-slate-500 font-medium">{session?.user.email}</p>
+                    </div>
                 </div>
+
+                <div className="space-y-3">
+                   <button 
+                    onClick={() => { setShowPricingPage(true); }}
+                    className="w-full p-4 flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl text-indigo-700 dark:text-indigo-300 transition-all active:scale-[0.98]"
+                   >
+                     <div className="flex flex-col items-start">
+                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">Your Plan</span>
+                        <span className="text-base font-bold capitalize">{subscription?.subscription.tier || 'Free'}</span>
+                     </div>
+                     <span className="bg-indigo-600 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-lg shadow-indigo-600/20">UPGRADE</span>
+                   </button>
+                   
+                   <div className="grid grid-cols-2 gap-3">
+                      <button 
+                        onClick={() => setShowSettings(true)}
+                        className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 text-left transition-all active:scale-95"
+                      >
+                         <CogIcon className="w-6 h-6 mb-2 text-slate-400" />
+                         <span className="text-sm font-bold block">Settings</span>
+                         <span className="text-[10px] text-slate-500 font-medium">Map & Security</span>
+                      </button>
+                      <button 
+                        onClick={() => setShowPrivacy(true)}
+                        className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 text-left transition-all active:scale-95"
+                      >
+                         <div className="w-6 h-6 mb-2 text-slate-400">
+                            <svg fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 1.944A11.947 11.947 0 012.13 5.02a1.094 1.094 0 00-.515.756c-1.313 7.962 4.38 12.884 8.125 14.172a1.083 1.083 0 00.52 0c3.746-1.288 9.438-6.21 8.125-14.172a1.094 1.094 0 00-.515-.756A11.947 11.947 0 0110 1.944zm1 11a1 1 0 11-2 0 1 1 0 012 0zm-1-7a1 1 0 011 1v3a1 1 0 11-2 0V6a1 1 0 011-1z" clipRule="evenodd" /></svg>
+                         </div>
+                         <span className="text-sm font-bold block">Privacy</span>
+                         <span className="text-[10px] text-slate-500 font-medium">Terms & Data</span>
+                      </button>
+                   </div>
+
+                   <button 
+                      onClick={handleSignOut} 
+                      className="w-full p-4 text-center bg-red-50 dark:bg-red-900/10 text-red-600 rounded-2xl font-bold border border-red-100 dark:border-red-900/20 mt-4 transition-all active:scale-95"
+                   >
+                    Sign Out
+                   </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1104,6 +1218,8 @@ const App: React.FC = () => {
             </div>
           )}
 
+        </div>
+
           <SettingsModal 
             isOpen={showSettings}
             onClose={() => setShowSettings(false)}
@@ -1114,6 +1230,17 @@ const App: React.FC = () => {
             masterPassword={masterPassword}
             onMasterPasswordChange={setMasterPassword}
           />
+
+          {showPrivacy && (
+            <div className="fixed inset-0 z-[5000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto" onClick={() => setShowPrivacy(false)}>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full p-8 max-h-[90vh] overflow-y-auto relative animate-scale-in" onClick={e => e.stopPropagation()}>
+                 <button onClick={() => setShowPrivacy(false)} className="absolute top-4 right-4 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <CloseIcon className="w-6 h-6 text-slate-400" />
+                 </button>
+                 <PrivacyPolicy onClose={() => setShowPrivacy(false)} />
+              </div>
+            </div>
+          )}
         </main>
 
         {session && (
@@ -1189,7 +1316,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Floating Action Button */}
+      {/* Floating Action Button (Hidden on Mobile, as it is in the BottomNav) */}
       <button
         onClick={() => {
           setEditingNote(null);
@@ -1197,7 +1324,7 @@ const App: React.FC = () => {
             setShowNoteForm(true);
           });
         }}
-        className="fixed bottom-8 right-8 btn-gradient rounded-xl p-4 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all z-50 group"
+        className="fixed bottom-8 right-8 btn-gradient rounded-xl p-4 shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all z-50 group hidden md:block"
         aria-label="Add new note"
       >
         <PlusIcon className="w-7 h-7 group-hover:rotate-90 transition-transform duration-300" />

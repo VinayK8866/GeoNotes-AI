@@ -1,5 +1,7 @@
 import React from 'react';
 import { MapIcon, DocumentTextIcon, PlusIcon, AiIcon, CogIcon } from './Icons';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { Capacitor } from '@capacitor/core';
 
 export type MobileTab = 'map' | 'notes' | 'ai' | 'settings';
 
@@ -10,17 +12,31 @@ interface MobileBottomNavProps {
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChange, onAddClick }) => {
+  const handleTabClick = (tab: MobileTab) => {
+    if (Capacitor.isNativePlatform()) {
+      Haptics.impact({ style: ImpactStyle.Light }).catch(() => {});
+    }
+    onTabChange(tab);
+  };
+
+  const handleAddClick = () => {
+    if (Capacitor.isNativePlatform()) {
+      Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {});
+    }
+    onAddClick();
+  };
+
   return (
     <nav className="mobile-bottom-nav md:hidden" aria-label="Mobile navigation">
       <button 
-        onClick={() => onTabChange('map')}
+        onClick={() => handleTabClick('map')}
         className={`mobile-nav-item ${activeTab === 'map' ? 'active' : ''}`}
       >
         <MapIcon className="w-6 h-6" />
         <span>Map</span>
       </button>
       <button 
-        onClick={() => onTabChange('notes')}
+        onClick={() => handleTabClick('notes')}
         className={`mobile-nav-item ${activeTab === 'notes' ? 'active' : ''}`}
       >
         <DocumentTextIcon className="w-6 h-6" />
@@ -28,7 +44,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onT
       </button>
       
       <button 
-        onClick={onAddClick}
+        onClick={handleAddClick}
         className="mobile-nav-item relative"
         aria-label="Add note"
       >
@@ -38,7 +54,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onT
       </button>
       
       <button 
-        onClick={() => onTabChange('ai')}
+        onClick={() => handleTabClick('ai')}
         className={`mobile-nav-item ${activeTab === 'ai' ? 'active' : ''}`}
       >
         <AiIcon className="w-6 h-6" />
@@ -46,7 +62,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onT
       </button>
       
       <button 
-        onClick={() => onTabChange('settings')}
+        onClick={() => handleTabClick('settings')}
         className={`mobile-nav-item ${activeTab === 'settings' ? 'active' : ''}`}
       >
         <CogIcon className="w-6 h-6" />
