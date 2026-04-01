@@ -841,12 +841,8 @@ const App: React.FC = () => {
               startTransition(() => {
                 setShowPrivacy(true);
               });
-            }}
-            onJoinWaitlist={async (email) => {
-              await joinWaitlist(email);
-              setSuccessMessage("You've been added to the waitlist!");
-              setTimeout(() => setSuccessMessage(null), 3000);
-            }}
+            }} 
+            onJoinWaitlist={() => setError("Please sign in to join the waitlist.")} 
         />
       </Suspense>
     );
