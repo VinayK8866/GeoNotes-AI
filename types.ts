@@ -27,6 +27,7 @@ export interface Note {
     name: string;
     coordinates: Coordinates;
   };
+  reminderRadius?: number; // Radius in meters for notifications
   created_at: string; // ISO string
   isArchived: boolean;
   isEncrypted?: boolean;

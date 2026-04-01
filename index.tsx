@@ -4,29 +4,7 @@ import App from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './styles/tokens.css';
 
-// Force cleanup of old broken Service Worker and Cache
-if (typeof window !== 'undefined') {
-  (function() {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        for (let registration of registrations) {
-          registration.unregister();
-          console.log('Force unregistering SW due to layout issues');
-        }
-      });
-    }
-    if ('caches' in window) {
-      caches.keys().then(names => {
-        for (let name of names) {
-          caches.delete(name);
-          console.log('Clearing cache:', name);
-        }
-      });
-    }
-  })();
-}
 
-/*
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.ts')
@@ -38,7 +16,7 @@ if ('serviceWorker' in navigator) {
       });
   });
 }
-*/
+
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

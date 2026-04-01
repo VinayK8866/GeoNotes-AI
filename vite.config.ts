@@ -20,6 +20,16 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       }
-    }
+    },
+    build: {
+      rollupOptions: {
+        external: ['@capacitor-community/background-geolocation'],
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom', 'leaflet'],
+          },
+        },
+      },
+    },
   };
 });

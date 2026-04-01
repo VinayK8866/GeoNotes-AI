@@ -97,7 +97,7 @@ export const Header: React.FC<HeaderProps> = ({
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 flex items-center gap-1.5 bg-gradient-to-r from-indigo-500 to-violet-500 rounded-md text-[11px] font-semibold text-white shadow-sm hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 {isAiSearching ? <SpinnerIcon className="w-3 h-3 animate-spin" /> : <AiIcon className="w-3 h-3" />}
-                Ask AI
+                <span className="hidden sm:inline">Ask AI</span>
               </button>
             </div>
           </div>

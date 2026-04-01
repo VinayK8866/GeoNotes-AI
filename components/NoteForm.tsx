@@ -27,6 +27,7 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
   const [isCategorizing, setIsCategorizing] = useState(false);
   const [isGeneratingContent, setIsGeneratingContent] = useState(false);
   const [isAutoFilling, setIsAutoFilling] = useState(false);
+  const [reminderRadius, setReminderRadius] = useState(1000); // meters
   const [errors, setErrors] = useState<{ title?: string; content?: string }>({});
 
   const debouncedSearchTerm = useDebounce(locationSearch, 300);
@@ -55,6 +56,7 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
       setCategoryId(noteToEdit.category?.id);
       setSelectedLocation(noteToEdit.location || null);
       setLocationSearch(noteToEdit.location?.name || '');
+      setReminderRadius(noteToEdit.reminderRadius || 1000);
     } else if (userLocation && !selectedLocation && !locationSearch) {
         // Auto-assign current location for new notes as a default
         const currentLoc = {
@@ -207,6 +209,7 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
       content,
       category: selectedCategory,
       location: selectedLocation || undefined,
+      reminderRadius: selectedLocation ? reminderRadius : undefined,
       created_at: noteToEdit?.created_at || new Date().toISOString(),
       isArchived: noteToEdit?.isArchived || false,
     };
@@ -216,10 +219,10 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
   const formTitle = noteToEdit ? 'Edit Note' : 'Add New Note';
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1100] flex justify-center items-center p-4 animate-fade-in" onClick={onCancel}>
-      <div className="glass-card w-full max-w-2xl max-h-[85vh] overflow-y-auto text-slate-900 dark:text-white animate-scale-in" onClick={(e) => e.stopPropagation()}>
-        <form onSubmit={handleSubmit} noValidate>
-          <div className="p-6 md:p-8 space-y-6">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1100] flex justify-center items-center md:p-4 animate-fade-in" onClick={onCancel}>
+      <div className="glass-card w-full h-full md:h-auto md:max-w-2xl md:max-h-[85vh] overflow-y-auto text-slate-900 dark:text-white animate-scale-in rounded-none md:rounded-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col h-full">
+          <div className="p-6 md:p-8 space-y-6 flex-grow pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
             <div className="flex justify-between items-center pb-4 border-b border-slate-200/60 dark:border-[#1e2d45]">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white">{formTitle}</h2>
               <button type="button" onClick={onCancel} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
@@ -343,7 +346,6 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
                         )}
                     </div>
                   </div>
-
                   {locationSuggestions.length > 0 && (
                     <ul className="absolute z-20 w-full mt-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
                       {locationSuggestions.map((s, index) => (
@@ -359,6 +361,25 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
                     </ul>
                   )}
                 </div>
+
+                {selectedLocation && (
+                  <div className="animate-fade-in">
+                    <label htmlFor="radius" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Reminder Radius</label>
+                    <select
+                      id="radius"
+                      value={reminderRadius}
+                      onChange={(e) => setReminderRadius(Number(e.target.value))}
+                      className="w-full bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-3 border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all appearance-none"
+                    >
+                      <option value="100">Small (100m)</option>
+                      <option value="250">Medium (250m)</option>
+                      <option value="500">Large (500m)</option>
+                      <option value="1000">Standard (1km)</option>
+                      <option value="2000">Wide (2km)</option>
+                      <option value="5000">City-wide (5km)</option>
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
           </div>
