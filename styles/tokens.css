@@ -44,16 +44,12 @@
   @keyframes fadeInDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes slideInRight { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
   @keyframes slideInLeft { from { opacity: 0; transform: translateX(-100%); } to { opacity: 1; transform: translateX(0); } }
-  @keyframes slideInUp { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
-  @keyframes slideOutDown { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(100%); } }
+  @keyframes slideInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
   @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-6px); } }
   @keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 0 0 rgb(99 102 241 / 0.4); } 50% { box-shadow: 0 0 0 8px rgb(99 102 241 / 0); } }
   @keyframes toastSlideIn { from { opacity: 0; transform: translateX(100%) scale(0.95); } to { opacity: 1; transform: translateX(0) scale(1); } }
   @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-
-  --animate-drawer-in: slideInUp 0.45s cubic-bezier(0.32, 0.72, 0, 1);
-  --animate-drawer-out: slideOutDown 0.3s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @layer base {
@@ -65,25 +61,11 @@
     background-color: var(--bg-app);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    padding-bottom: var(--content-safe-padding-bottom);
     touch-action: manipulation;
-    position: relative;
-    height: auto;
-    width: 100%;
     overflow-x: hidden;
-  }
-
-  html, #root {
-    width: 100%;
-    height: auto;
-  }
-
-  /* Mobile App Shell Lock */
-  @media (max-width: 767px) {
-    html, body, #root {
-      height: 100%;
-      overflow: hidden;
-      position: fixed;
-    }
+    position: relative;
+    overscroll-behavior-y: none; /* Prevent elastic scroll bounce on mobile */
   }
 
   html {
@@ -683,98 +665,16 @@
   left: 0;
   right: 0;
   height: calc(64px + env(safe-area-inset-bottom, 0px));
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(28px) saturate(200%);
-  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-top: 1px solid var(--border-1);
   display: flex;
   align-items: center;
   justify-content: space-around;
   padding-bottom: env(safe-area-inset-bottom, 0px);
   z-index: 1000;
-  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
-}
-
-/* Bottom Sheet / Drawer Component */
-.bottom-drawer {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  pointer-events: none;
-}
-
-.bottom-drawer-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: auto;
-}
-
-.bottom-drawer.open .bottom-drawer-backdrop {
-  opacity: 1;
-}
-
-.bottom-drawer-content {
-  position: relative;
-  width: 100%;
-  max-height: 92vh;
-  background: var(--bg-surface);
-  border-radius: 24px 24px 0 0;
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
-  pointer-events: auto;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  transform: translateY(100%);
-}
-
-@media (max-width: 767px) {
-  .bottom-drawer.open .bottom-drawer-content {
-    animation: slideInUp 0.45s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-  }
-  
-  .bottom-drawer.closing .bottom-drawer-content {
-    animation: slideOutDown 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
-  }
-
-  .bottom-drawer-handle {
-    width: 36px;
-    height: 4px;
-    background: var(--border-2);
-    border-radius: 2px;
-    margin: 12px auto;
-    flex-shrink: 0;
-  }
-}
-
-@media (min-width: 768px) {
-  .bottom-drawer {
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-  }
-  
-  .bottom-drawer-content {
-    max-width: 640px;
-    max-height: 85vh;
-    border-radius: 24px;
-    transform: none;
-    opacity: 0;
-    scale: 0.95;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  
-  .bottom-drawer.open .bottom-drawer-content {
-    opacity: 1;
-    scale: 1;
-  }
+  transition: transform 0.3s ease-in-out;
 }
 
 .dark .mobile-bottom-nav {

@@ -219,165 +219,186 @@ const NoteForm: React.FC<NoteFormProps> = ({ noteToEdit, onSave, onCancel, categ
   const formTitle = noteToEdit ? 'Edit Note' : 'Add New Note';
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex flex-col h-full bg-white dark:bg-[#131c2e]">
-      <div className="p-6 md:p-8 space-y-6 flex-grow pb-[calc(2rem+env(safe-area-inset-bottom,0px))] md:pb-8">
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="title" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500 mb-2">Title</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Enter a descriptive title..."
-                className={`flex-grow w-full bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-4 border text-base placeholder-slate-400 dark:placeholder-slate-600 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all ${errors.title ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'}`}
-                required
-              />
-              <button
-                type="button"
-                onClick={handleAiFill}
-                disabled={isAutoFilling || !title.trim()}
-                title="Auto-fill note with AI"
-                className="flex-shrink-0 flex items-center justify-center w-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all disabled:opacity-50 disabled:scale-100 disabled:shadow-none"
-              >
-                {isAutoFilling ? <SpinnerIcon className="w-6 h-6 animate-spin" /> : <AiIcon className="w-6 h-6" />}
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1100] flex justify-center items-center md:p-4 animate-fade-in" onClick={onCancel}>
+      <div className="glass-card w-full h-full md:h-auto md:max-w-2xl md:max-h-[85vh] overflow-y-auto text-slate-900 dark:text-white animate-scale-in rounded-none md:rounded-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <form onSubmit={handleSubmit} noValidate className="flex flex-col h-full">
+          <div className="p-6 md:p-8 space-y-6 flex-grow pb-[calc(2rem+env(safe-area-inset-bottom,0px))]">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-200/60 dark:border-[#1e2d45]">
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">{formTitle}</h2>
+              <button type="button" onClick={onCancel} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <CloseIcon className="w-5 h-5 text-slate-400" />
               </button>
             </div>
-            {errors.title && <p className="text-xs text-red-500 mt-2 ml-1 font-medium">{errors.title}</p>}
-          </div>
 
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label htmlFor="content" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500">Content</label>
-              <button
-                type="button"
-                onClick={handleAiAssist}
-                disabled={isGeneratingContent || !title.trim()}
-                className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 disabled:text-slate-400 dark:disabled:text-slate-700 transition-colors bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5 rounded-full"
-              >
-                {isGeneratingContent ? <SpinnerIcon className="w-3 h-3 animate-spin" /> : <AiIcon className="w-3.5 h-3.5" />}
-                <span>AI Assist</span>
-              </button>
-            </div>
-            <textarea
-              id="content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={6}
-              placeholder="What's on your mind?"
-              className={`w-full bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-4 border text-base placeholder-slate-400 dark:placeholder-slate-600 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all min-h-[120px] ${errors.content ? 'border-red-500' : 'border-slate-200 dark:border-slate-800'}`}
-            />
-            {errors.content && <p className="text-xs text-red-500 mt-2 ml-1 font-medium">{errors.content}</p>}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label htmlFor="category" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500 mb-2">Category</label>
-              <div className="flex gap-2">
-                <select
-                  id="category"
-                  value={categoryId || ''}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all appearance-none text-base"
-                >
-                  <option value="">Select a category...</option>
-                  {categories.map(cat => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={handleAiCategorize}
-                  disabled={isCategorizing || categories.length === 0}
-                  className="flex-shrink-0 flex items-center justify-center w-14 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all disabled:opacity-50"
-                >
-                  {isCategorizing ? <SpinnerIcon className="w-6 h-6 animate-spin" /> : <AiIcon className="w-6 h-6" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="relative">
-              <label htmlFor="location" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500 mb-2">Location</label>
-              <div className="relative">
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="title" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Title</label>
                 <div className="flex gap-2">
-                    <MapPinIcon className="w-5 h-5 text-indigo-500 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
+                  <input
                     type="text"
-                    id="location"
-                    value={locationSearch}
-                    onChange={(e) => {
-                        setLocationSearch(e.target.value);
-                        if (selectedLocation) setSelectedLocation(null);
-                    }}
-                    placeholder="Search places..."
-                    className="w-full bg-slate-50 dark:bg-slate-900/50 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 pl-11 transition-all text-base font-medium"
-                    />
-                    {isSearching && <SpinnerIcon className="w-5 h-5 text-indigo-500 absolute right-4 top-1/2 -translate-y-1/2 animate-spin" />}
-                    {!isSearching && selectedLocation && (
-                    <button type="button" onClick={handleClearLocation} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                        <CloseIcon className="w-5 h-5" />
-                    </button>
-                    )}
+                    id="title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Enter a descriptive title..."
+                    className={`flex-grow w-full bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-3 border placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all ${errors.title ? 'border-red-500' : 'border-gray-200 dark:border-gray-700'}`}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAiFill}
+                    disabled={isAutoFilling || !title.trim()}
+                    title="Auto-fill note with AI"
+                    className="flex-shrink-0 flex items-center justify-center w-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all disabled:opacity-50 disabled:scale-100 disabled:shadow-none"
+                  >
+                    {isAutoFilling ? <SpinnerIcon className="w-5 h-5 animate-spin" /> : <AiIcon className="w-5 h-5" />}
+                  </button>
                 </div>
+                {errors.title && <p className="text-xs text-red-500 mt-1 ml-1">{errors.title}</p>}
               </div>
-              {locationSuggestions.length > 0 && (
-                <ul className="absolute z-20 w-full mt-2 bg-white dark:bg-[#1e2536] border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl max-h-48 overflow-y-auto custom-scrollbar ring-8 ring-white/10">
-                  {locationSuggestions.map((s, index) => (
-                    <li
-                      key={index}
-                      onClick={() => handleSelectSuggestion(s)}
-                      className="px-4 py-4 text-sm text-slate-900 dark:text-white hover:bg-indigo-50 dark:hover:bg-indigo-900/30 cursor-pointer border-b last:border-0 border-slate-100 dark:border-slate-800 transition-colors"
+
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label htmlFor="content" className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Content</label>
+                  <button
+                    type="button"
+                    onClick={handleAiAssist}
+                    disabled={isGeneratingContent || !title.trim()}
+                    className="flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 disabled:text-gray-400 dark:disabled:text-gray-600 transition-colors"
+                  >
+                    {isGeneratingContent ? <SpinnerIcon className="w-3 h-3 animate-spin" /> : <AiIcon className="w-3 h-3" />}
+                    <span>AI Assist</span>
+                  </button>
+                </div>
+                <textarea
+                  id="content"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  rows={6}
+                  placeholder="What's on your mind?"
+                  className={`w-full bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-3 border placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all ${errors.content ? 'border-red-500' : 'border-gray-200 dark:border-gray-700'}`}
+                />
+                {errors.content && <p className="text-xs text-red-500 mt-1 ml-1">{errors.content}</p>}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="category" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Category</label>
+                  <div className="flex gap-2">
+                    <select
+                      id="category"
+                      value={categoryId || ''}
+                      onChange={(e) => setCategoryId(e.target.value)}
+                      className="w-full bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-3 border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all appearance-none"
                     >
-                      <p className="font-bold text-base">{s.name}</p>
-                      <p className="text-xs text-slate-500 dark:text-gray-400 truncate mt-0.5">{s.address}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                      <option value="">Select a category...</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleAiCategorize}
+                      disabled={isCategorizing || categories.length === 0}
+                      className="flex-shrink-0 flex items-center justify-center w-12 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all disabled:opacity-50"
+                    >
+                      {isCategorizing ? <SpinnerIcon className="w-5 h-5 animate-spin" /> : <AiIcon className="w-5 h-5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <label htmlFor="location" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Location</label>
+                  <div className="relative">
+                    <div className="flex gap-2">
+                        <MapPinIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                        type="text"
+                        id="location"
+                        value={locationSearch}
+                        onChange={(e) => {
+                            setLocationSearch(e.target.value);
+                            if (selectedLocation) setSelectedLocation(null);
+                        }}
+                        placeholder="Search places..."
+                        className="w-full bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-3 border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 pl-10 transition-all font-medium"
+                        />
+                        {userLocation && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                            setSelectedLocation({ name: 'Current Location', coordinates: userLocation });
+                            setLocationSearch('Current Location');
+                            }}
+                            title="Use current location"
+                            className="flex-shrink-0 flex items-center justify-center w-12 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
+                        >
+                            <div className="relative">
+                                <MapPinIcon className="w-5 h-5" />
+                                <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-indigo-500 border-2 border-white dark:border-slate-800 rounded-full animate-pulse" />
+                            </div>
+                        </button>
+                        )}
+                        {isSearching && <SpinnerIcon className="w-5 h-5 text-gray-400 absolute right-16 top-1/2 -translate-y-1/2 animate-spin" />}
+                        {selectedLocation && (
+                        <button type="button" onClick={handleClearLocation} className="absolute right-16 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                            <CloseIcon className="w-5 h-5" />
+                        </button>
+                        )}
+                    </div>
+                  </div>
+                  {locationSuggestions.length > 0 && (
+                    <ul className="absolute z-20 w-full mt-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+                      {locationSuggestions.map((s, index) => (
+                        <li
+                          key={index}
+                          onClick={() => handleSelectSuggestion(s)}
+                          className="px-4 py-3 text-sm text-gray-900 dark:text-white hover:bg-indigo-50 dark:hover:bg-indigo-900/30 cursor-pointer border-b last:border-0 border-gray-100 dark:border-gray-700/50 transition-colors"
+                        >
+                          <p className="font-semibold">{s.name}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{s.address}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {selectedLocation && (
+                  <div className="animate-fade-in">
+                    <label htmlFor="radius" className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Reminder Radius</label>
+                    <select
+                      id="radius"
+                      value={reminderRadius}
+                      onChange={(e) => setReminderRadius(Number(e.target.value))}
+                      className="w-full bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl p-3 border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all appearance-none"
+                    >
+                      <option value="100">Small (100m)</option>
+                      <option value="250">Medium (250m)</option>
+                      <option value="500">Large (500m)</option>
+                      <option value="1000">Standard (1km)</option>
+                      <option value="2000">Wide (2km)</option>
+                      <option value="5000">City-wide (5km)</option>
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {selectedLocation && (
-            <div className="animate-fade-in pt-2">
-              <label htmlFor="radius" className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500 mb-2 flex items-center justify-between">
-                <span>Reminder Radius</span>
-                <span className="text-indigo-600 dark:text-indigo-400 font-black">
-                   {reminderRadius >= 1000 ? `${reminderRadius/1000}km` : `${reminderRadius}m`}
-                </span>
-              </label>
-              <input 
-                type="range"
-                id="radius"
-                min="100"
-                max="5000"
-                step="100"
-                value={reminderRadius}
-                onChange={(e) => setReminderRadius(Number(e.target.value))}
-                className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-              />
-              <div className="flex justify-between mt-2 px-1">
-                 <span className="text-[10px] font-bold text-slate-400">100m</span>
-                 <span className="text-[10px] font-bold text-slate-400">5km</span>
-              </div>
-            </div>
-          )}
-        </div>
+          <div className="px-6 py-4 md:px-8 bg-slate-50/50 dark:bg-[#0b1121]/30 border-t border-slate-200/60 dark:border-[#1e2d45] flex justify-end gap-3 rounded-b-2xl">
+            <button type="button" onClick={onCancel} className="px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={Object.keys(errors).length > 0}
+              className="btn-gradient px-6 py-2.5 text-sm"
+            >
+              {noteToEdit ? 'Save Changes' : 'Create Note'}
+            </button>
+          </div>
+        </form>
       </div>
-
-      <div className="p-6 bg-slate-50/80 dark:bg-black/20 border-t border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-end gap-3 sticky bottom-0 z-10 backdrop-blur-md">
-        <button type="button" onClick={onCancel} className="hidden md:block px-6 py-3 text-sm font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-2xl transition-colors">
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={Object.keys(errors).length > 0}
-          className="btn-gradient w-full md:w-auto px-8 py-4 text-base shadow-indigo-500/25"
-        >
-          {noteToEdit ? 'Save Changes' : 'Create Note'}
-        </button>
-      </div>
-    </form>
+    </div>
   );
 };
 

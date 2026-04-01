@@ -1,18 +1,5 @@
 import React from 'react';
 import { MapIcon, DocumentTextIcon, PlusIcon, AiIcon, CogIcon } from './Icons';
-import { Capacitor } from '@capacitor/core';
-
-// Safe haptics helper that won't crash on bundling
-const triggerHaptics = async (style: 'LIGHT' | 'MEDIUM' | 'HEAVY') => {
-  if (Capacitor.isNativePlatform()) {
-    try {
-      const { Haptics, ImpactStyle } = await import('@capacitor/haptics');
-      await Haptics.impact({ style: ImpactStyle[style] });
-    } catch (e) {
-      console.warn('Haptics not available:', e);
-    }
-  }
-};
 
 export type MobileTab = 'map' | 'notes' | 'ai' | 'settings';
 
@@ -23,27 +10,17 @@ interface MobileBottomNavProps {
 }
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChange, onAddClick }) => {
-  const handleTabClick = (tab: MobileTab) => {
-    triggerHaptics('LIGHT');
-    onTabChange(tab);
-  };
-
-  const handleAddClick = () => {
-    triggerHaptics('MEDIUM');
-    onAddClick();
-  };
-
   return (
     <nav className="mobile-bottom-nav md:hidden" aria-label="Mobile navigation">
       <button 
-        onClick={() => handleTabClick('map')}
+        onClick={() => onTabChange('map')}
         className={`mobile-nav-item ${activeTab === 'map' ? 'active' : ''}`}
       >
         <MapIcon className="w-6 h-6" />
         <span>Map</span>
       </button>
       <button 
-        onClick={() => handleTabClick('notes')}
+        onClick={() => onTabChange('notes')}
         className={`mobile-nav-item ${activeTab === 'notes' ? 'active' : ''}`}
       >
         <DocumentTextIcon className="w-6 h-6" />
@@ -51,7 +28,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onT
       </button>
       
       <button 
-        onClick={handleAddClick}
+        onClick={onAddClick}
         className="mobile-nav-item relative"
         aria-label="Add note"
       >
@@ -61,7 +38,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onT
       </button>
       
       <button 
-        onClick={() => handleTabClick('ai')}
+        onClick={() => onTabChange('ai')}
         className={`mobile-nav-item ${activeTab === 'ai' ? 'active' : ''}`}
       >
         <AiIcon className="w-6 h-6" />
@@ -69,7 +46,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onT
       </button>
       
       <button 
-        onClick={() => handleTabClick('settings')}
+        onClick={() => onTabChange('settings')}
         className={`mobile-nav-item ${activeTab === 'settings' ? 'active' : ''}`}
       >
         <CogIcon className="w-6 h-6" />
