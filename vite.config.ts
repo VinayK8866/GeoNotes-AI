@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        '@capacitor-community/background-geolocation': path.resolve(__dirname, 'src/stubs/background-geolocation.ts'),
       }
     },
     build: {
